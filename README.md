@@ -6,11 +6,15 @@
 
 A brief description of the app and its purpose.
 
+## UML Diagram
+
+![Alt text](UML.drawio.png)
+
 ## Features
 
-- Feature 1
-- Feature 2
-- Feature 3
+- Send the parcel.
+- Receive the parcel.
+- Return the parcel.
 
 ## Screenshots
 
