@@ -45,8 +45,8 @@ def create_locker_status_table():
     cursor = connection.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS locker_status (
-        locker_status_id SERIAL PRIMARY KEY,
-        locker_id INT NOT NULL,
+        locker_id INT PRIMARY KEY,
+        cell_id INT NOT NULL,
         occupied BOOLEAN DEFAULT FALSE NOT NULL,
         FOREIGN KEY (locker_id) REFERENCES locker (locker_id)
     )
