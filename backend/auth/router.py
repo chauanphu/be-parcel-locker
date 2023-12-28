@@ -44,12 +44,9 @@ async def login_for_access_token(
     token = create_access_token(user.email, timedelta(minutes=20))
 
     return {
-        'email': user.email,
-        'username': user.username, 
         'access_token': token, 
         'token_type': 'bearer'
     }
-
 
 @router.get("/login", status_code=status.HTTP_200_OK)
 async def user(current_user: User = Depends(get_current_user)):
