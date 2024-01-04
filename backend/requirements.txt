@@ -7,3 +7,4 @@ python-decouple
 uvicorn
 python-multipart
 bcrypt
+psycopg2-binary
