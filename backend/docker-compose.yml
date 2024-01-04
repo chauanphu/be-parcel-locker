@@ -1,18 +1,20 @@
 version: '3.8'
 
 services:
-  # app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   image: be-parcel:0.0.1
-  #   restart: always
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - .:/app
-  #   depends_on:
-  #     - db
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: be-parcel:1.0.0
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    environment:
+      - DB_STRING=postgresql://admin:123123@db:5432/parcel
   db:
     image: postgres:16.1-alpine3.19
     ports:
