@@ -126,6 +126,3 @@ cython_debug/
 # PostgreSQL
 data
 *.sql
-
-# Docker
-docker-compose.prod.yml

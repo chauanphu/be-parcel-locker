@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  app:
+    image: be-parcel:0.0.1
+    container_name: be-parcel
+    restart: always
+    environment:
+      - SECRET_KEY=MmUCA619ZfbO1kiMgvtZ8V01RQDXNYMx
+      - DB_STRING=postgresql://admin:123123@db:5432/parcel
+    depends_on:
+      - db
+    links:
+      - db
+    networks:
+      - intra-domain
+      # - nginx-network
+    ports:
+      - 8000:8000
+  db:
+    image: postgres:16.1-alpine3.19
+    container_name: db-parcel
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=123123
+      - POSTGRES_DB=parcel
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    networks:
+      - intra-domain
+  pgadmin:
+    image: dpage/pgadmin4:7.7
+    container_name: pgadmin-parcel
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+    depends_on:
+      - db
+networks:
+  intra-domain:
+#   nginx-network:
+#     external: true

@@ -9,7 +9,8 @@ class LockerStatus(Base):
     cell_id = Column(Integer, nullable=False)
     occupied = Column(Boolean, nullable=False, default=False)
     PrimaryKeyConstraint(locker_id, cell_id)
-    
+
+print ("LockerStatus model created successfully.")
 class Locker(Base):
     __tablename__ = 'locker'
 
@@ -19,3 +20,5 @@ class Locker(Base):
     longitude = Column(Float, nullable=False)
 
     cells = relationship('LockerStatus', backref='locker', lazy=True)
+
+print ("Locker model created successfully.")
