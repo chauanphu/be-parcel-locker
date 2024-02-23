@@ -25,8 +25,6 @@ class CreateUserRequest(BaseModel):
 
 
 class Token(BaseModel):
-    email: str
-    username: str
     access_token: str
     token_type: str
 
@@ -51,12 +49,13 @@ async def login_for_access_token(
     user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Could not validate user')
-    token = create_access_token(user.email, timedelta(minutes=20))
+                            detail='Could not validate user',
+                            )
+    token = create_access_token(user.username, timedelta(minutes=20))
 
     return {
-        'access_token': token, 
-        'token_type': 'bearer'
+        "access_token": token, 
+        "token_type": 'bearer'
     }
 
 @router.get("/login", status_code=status.HTTP_200_OK)
