@@ -7,13 +7,28 @@ from starlette import status
 from models.user import User
 from auth import bcrypt_context
 from auth.utils import authenticate_user, create_access_token, get_current_user
-from auth.models import CreateUserRequest, Token
 from database.session import get_db
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix='/auth',
     tags=['auth']
 )
+
+class CreateUserRequest(BaseModel):
+    email: str
+    username: str
+    name: str
+    address: str
+    phone: str
+    password: str
+
+
+class Token(BaseModel):
+    email: str
+    username: str
+    access_token: str
+    token_type: str
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
@@ -21,16 +36,12 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
     if user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Email already exists')
-    create_user_model = User(
-        username = create_user_request.email,
-        password = bcrypt_context.hash(create_user_request.password),
-        email = create_user_request.email,
-        address = create_user_request.address,
-        phone = create_user_request.phone
-    )
-    db.add(create_user_model)
+    create_user_request.password = bcrypt_context.hash(create_user_request.password)
+    db_user = User(**create_user_request.model_dump())
+    print(db_user)
+    db.add(db_user)
     db.commit()
-    return {"message": "User created successfully"}
+    return {"messsage": "User created successfully"}
 
 
 @router.post("/token", response_model=Token)
