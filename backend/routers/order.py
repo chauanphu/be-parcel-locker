@@ -26,3 +26,14 @@ def create_order(order: OrderRequest):
 	my_order.append(order_dict)
 	return{"data":order_dict}
 
+@router.get("/", status_code=status.HTTP_200_OK, response_model=list[OrderRequest])
+def get_all_orders():
+    return my_order
+#this returns a list of all orders stored in the my_order list.
+
+@router.get("/{order_id}", status_code=status.HTTP_200_OK, response_model=OrderRequest)
+def get_order_by_id(order_id: int):
+    for order in my_order:
+        if order["id"] == order_id:
+            return order
+    return {"error": "Order not found"}
