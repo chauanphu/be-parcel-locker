@@ -23,6 +23,8 @@ class UserResponse(BaseModel):
     phone: str
     address: str
     
+my_posts = [{"user_id":123, "name":"content 1", "email":"content 2", "phone":"content 3", "address":"content 4"}]
+
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(User).filter(User.user_id == user_id).first()
