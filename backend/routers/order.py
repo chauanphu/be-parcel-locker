@@ -3,7 +3,7 @@ from fastapi import APIRouter, status, Response, HTTPException
 from fastapi.params import Body
 from pydantic import BaseModel
 from random import randrange
-from backend.routers.user import my_posts
+from routers.user import my_posts
 router = APIRouter(
     prefix="/order",
     tags=["order"],

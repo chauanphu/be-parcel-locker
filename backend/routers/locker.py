@@ -34,17 +34,21 @@ async def get_lockers(db: Session = Depends(get_db)):
 
 @router.get("/{locker_id}", response_model=LockerResponse)
 async def get_locker(locker_id: int, db: Session = Depends(get_db)):
+    # Get locker by id
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+    # If not found, raise 404
     if not locker:
         raise HTTPException(status_code=404, detail="Locker not found")
     return locker
 
 @router.put("/{locker_id}", response_model=int)
 async def update_locker(locker_id: int, _locker: LockerStatusRequest, db: Session = Depends(get_db)):
+    # Update locker status, allow partial update
     db_locker = db.query(LockerStatus).filter(LockerStatus.locker_id == locker_id).update(_locker.model_dump(
         exclude_unset=True, 
         exclude_none=True
         ))
+    # If not found, raise 404
     if not db_locker:
         raise HTTPException(status_code=404, detail="Locker not found")
     db.commit()
