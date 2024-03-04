@@ -36,7 +36,7 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
 def get_package(package_id: int, db: Session = Depends(get_db), ):
     package = db.query(Order).filter(Order.package_id == package_id).first()
     if not package:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Order not found")
     return package
     
 
