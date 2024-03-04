@@ -1,104 +1,84 @@
 from datetime import date
-from fastapi import APIRouter, status, Response, HTTPException
-from fastapi.params import Body
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from random import randrange
-from routers.user import my_posts
+from sqlalchemy.orm import Session
+from database.session import get_db
+from models.order import Order
+
 router = APIRouter(
     prefix="/order",
     tags=["order"],
 )
 class OrderRequest(BaseModel):
-    #package_id: str
+    package_id: int
     sender_id: int
-    recipient_id: str
+    recipient_id: int
     sending_locker_id: str
     receiving_locker_id: str
     ordering_date:date
     sending_date: date
     receiving_date: date
 
-my_order = [{"package":111, "sender":123, "recipient":"recipient 1","sending_locker":"sending_locker 1",
-              "receiving_locker":"receiving_locker 1", "sending_date":"sending_date 1", "receiving_date":"receiving_date 1"}   ]
 
-#tạo một package_id bằng random (khi tạo bằng sequence thì bị lỗi nên mình để tạm randrange)
-@router.post("/createorder", status_code=status.HTTP_201_CREATED)
-def create_order(order: OrderRequest):
-    order_dict = order.dict()
-    order_dict['package_id'] = randrange(1,999999)
-    my_order.append(order_dict)
-    return {'data':order_dict}
+#tạo order
+@router.post("/", response_model=OrderRequest)
+def create_order(order: OrderRequest, db: Session = Depends(get_db)):
+#Đối tượng new_order mới được tạo sẽ được thêm vào database bằng phương thức add()
+    new_order = Order(**order.dict())
+    db.add(new_order)
+    db.commit()
+    db.refresh(new_order)
+    return new_order
 
-#hàm để tìm gói hàng
-def find_package_id(package_id):
-    for d in my_order:
-        if d["package_id"] == package_id:
-            return d
 
 #GET order bằng package_id
-@router.get("/find_package_id/{package_id}")
-def get_package_id(package_id: int, response : Response):
-
-    find = find_package_id(package_id)
+@router.get("/{package_id}", response_model= OrderRequest)
+def get_package(package_id: int, db: Session = Depends(get_db), ):
+    package = db.query(Order).filter(Order.package_id == package_id).first()
+    if not package:
+        raise HTTPException(status_code=404, detail="User not found")
+    return package
     
-    if not find:
-
-        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND,
-                             detail = f"find with package_id:{package_id} was not found")
-    return {"find_detail": find}
-
-#hàm để tìm xem user_id có trùng với sender_id không
-#nếu có thì có order 
-def find_sth(user_id):
-    for order in my_order:
-        sender_id = order["sender_id"]
-        for post in my_posts:
-            if order["sender_id"] == user_id:
-                return order
-    return None
-
 
 #GET order bằng cả user và package
-@router.get("/find_id_ne/{user_id}/{package_id}")
-def get_package_by_id (user_id: int,package_id:int, response: Response):
-    find_theid = find_sth(user_id)
-    if not find_theid:
+@router.get("/{user_id}/{package_id}", response_model=OrderRequest)
+def get_package(user_id: int, package_id: int, db: Session = Depends(get_db)):
+    package = db.query(Order).filter(Order.user_id == user_id, Order.package_id == package_id).first()
+    if not package:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return package
 
-        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND,
-                             detail = f"find with user_id:{user_id} and package_id:{package_id} was not found")
-    return {"find_detail": find_theid}
-
-
-#Hàm cho put và delete
-def find_index_order(package_id):
-    for j,k in enumerate(my_order):
-        if k['package_id'] == package_id:
-            return j
 
 #update order bằng package_id    
-@router.put("/put_order/{package_id}")
-def update_order(package_id: int, order: OrderRequest):
-
-    order_index = find_index_order(package_id)
-
-    if order_index == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-                            detail = f"post with package_id:{package_id} does not exits")
-    order_dict = order.dict()
-    order_dict['package_id'] = package_id
-    my_order[order_index] = order_dict
-    return {'data': order_dict}
+@router.put("/{package_id}", response_model=OrderRequest)
+def update_package(package_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
+    # Allow for partial updates
+    package_put = db.query(Order).filter(Order.package_id == package_id).update(
+        _package.model_dump(
+            exclude_unset=True, 
+            exclude_none=True
+        ))
+    # Check if order exists
+    # If not, raise an error
+    if not package_put:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    db.commit()
+    return package_put
 
 
 #delete order bằng package_id
-@router.delete("/delete_order/{package_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_order(package_id:int):
-    order_index = find_index_order(package_id)
+@router.delete("/{package_id}", response_model=OrderRequest)
+def delete_package(package_id: int, db: Session = Depends(get_db)):
+    package_delete = db.query(Order).filter(Order.package_id == package_id).first()
+    #nếu order không được tìm thấy thì là not found
+    if not package_delete:
+        raise HTTPException(status_code=404, detail="Order not found")
+    #nếu xóa rồi mà quên xong xóa thêm lần nữa thì hiện ra là k tồn tại
+    if package_delete == None:
+        raise HTTPException(status_code=404, detail="Order not exist")
 
-    if order_index == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-                            detail = f"post with package_id:{package_id} does not exits")
-
-    my_order.pop(order_index)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    db.delete(package_delete)
+    db.commit()
+    return package_delete
 

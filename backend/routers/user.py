@@ -22,8 +22,6 @@ class UserResponse(BaseModel):
     email: str
     phone: str
     address: str
-    
-my_posts = [{"user_id":123, "name":"content 1", "email":"content 2", "phone":"content 3", "address":"content 4"}]
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
