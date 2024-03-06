@@ -4,7 +4,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status
 from sqlalchemy.orm import Session
 from starlette import status
-from models.user import UserCrea
 from auth.utils import authenticate_user, create_access_token
 from database.session import get_db
 from pydantic import BaseModel
