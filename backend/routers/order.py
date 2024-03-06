@@ -1,10 +1,12 @@
 from datetime import date
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
+from auth.utils import get_current_user
 
 router = APIRouter(
     prefix="/order",
     tags=["order"],
+    dependencies=[Depends(get_current_user)]
 )
 class OrderRequest(BaseModel):
     package_id: str
