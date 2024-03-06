@@ -1,5 +1,3 @@
-from http.client import HTTPResponse
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database.session import get_db
@@ -7,10 +5,11 @@ from models.locker import Locker, LockerStatus
 from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
-
+from auth.utils import get_current_user
 router = APIRouter(
     prefix="/locker",
     tags=["locker"],
+    dependencies=[Depends(get_current_user)]
 )
 
 class LockerStatusRequest(BaseModel):
