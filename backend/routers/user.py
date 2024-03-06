@@ -4,7 +4,8 @@ from database.session import get_db
 from models.user import User
 from sqlalchemy.orm import Session
 from typing import Optional
-from auth.utils import get_current_user, oauth2_bearer
+from auth.utils import get_current_user, authenticate_user, bcrypt_context
+from starlette import status
 
 router = APIRouter(
     prefix="/user",
@@ -18,6 +19,14 @@ class UserRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+
+class CreateUserRequest(BaseModel):
+    email: str
+    username: str
+    name: str
+    address: str
+    phone: str
+    password: str
 
 class UserResponse(BaseModel):
     user_id: int
@@ -50,4 +59,16 @@ def update_user(user_id: int, _user: UserRequest, db: Session = Depends(get_db))
     db.commit()
     return user
 
-# TODO: Implement PUT CHANGE PASSWORD
+# A POST REQUEST TO CREATE USER
+@router.post('/', status_code=status.HTTP_201_CREATED)
+async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
+    user = authenticate_user(create_user_request.email, create_user_request.password, db)
+    if user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Email already exists')
+    create_user_request.password = bcrypt_context.hash(create_user_request.password)
+    db_user = User(**create_user_request.model_dump())
+    print(db_user)
+    db.add(db_user)
+    db.commit()
+    return {"messsage": "User created successfully"}
