@@ -4,11 +4,13 @@ from database.session import get_db
 from models.user import User
 from sqlalchemy.orm import Session
 from typing import Optional
+from auth.utils import oauth2_bearer
 
 router = APIRouter(
     prefix="/user",
     tags=["user"],
 )
+
 
 class UserRequest(BaseModel):
     name: Optional[str] = None
@@ -23,7 +25,7 @@ class UserResponse(BaseModel):
     phone: str
     address: str
     
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse, dependencies=[Depends(oauth2_bearer)]) # Add dependencies
 def get_user(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:

@@ -58,8 +58,8 @@ async def login_for_access_token(
         "token_type": 'bearer'
     }
 
-@router.get("/login", status_code=status.HTTP_200_OK)
-async def user(current_user: User = Depends(get_current_user)):
-    if current_user is None:
-        raise HTTPException(status_code=401, detail='Authentication Failed')
-    return {"User": user}
+# @router.get("/login", status_code=status.HTTP_200_OK)
+# async def user(current_user: User = Depends(get_current_user)):
+#     if current_user is None:
+#         raise HTTPException(status_code=401, detail='Authentication Failed')
+#     return {"User": user}

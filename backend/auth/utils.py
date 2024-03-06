@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 from database.session import get_db
 from auth import SECRET_KEY, ALGORITHM, bcrypt_context
 
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl='api/v1/auth/token')
 
 def authenticate_user(username: str, password: str, db):
     user = db.query(User).filter(User.username == username).first()
