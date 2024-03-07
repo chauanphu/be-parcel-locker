@@ -34,8 +34,8 @@ class UserResponse(BaseModel):
     email: str
     phone: str
     address: str
-    
-@router.get("/{user_id}", response_model=UserResponse) # Add dependencies
+
+@router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
