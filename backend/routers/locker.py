@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database.session import get_db
-from models.locker import Locker, LockerStatus
+from models.locker import Locker, Cell
 from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
@@ -12,11 +12,11 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-class LockerStatusRequest(BaseModel):
+class CellRequest(BaseModel):
     cell_id: int
     occupied: bool
 
-class LockerStatusResponse(BaseModel):
+class CellResponse(BaseModel):
     cell_id: int
     occupied: bool
 
@@ -25,7 +25,7 @@ class LockerResponse(BaseModel):
     address: str
     latitude: float
     longitude: float
-    cells: List[LockerStatusResponse]
+    cells: List[CellResponse]
 
 @router.get("/", response_model=List[LockerResponse])
 async def get_lockers(db: Session = Depends(get_db)):
@@ -41,9 +41,9 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
     return locker
 
 @router.put("/{locker_id}", response_model=int)
-async def update_locker(locker_id: int, _locker: LockerStatusRequest, db: Session = Depends(get_db)):
+async def update_locker(locker_id: int, _locker: CellRequest, db: Session = Depends(get_db)):
     # Update locker status, allow partial update
-    db_locker = db.query(LockerStatus).filter(LockerStatus.locker_id == locker_id).update(_locker.model_dump(
+    db_locker = db.query(Cell).filter(Cell.locker_id == locker_id).update(_locker.model_dump(
         exclude_unset=True, 
         exclude_none=True
         ))

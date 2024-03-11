@@ -2,15 +2,15 @@ from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, PrimaryKeyCo
 from database.__init__ import Base
 from sqlalchemy.orm import relationship
 
-class LockerStatus(Base):
-    __tablename__ = 'locker_status'
+class Cell(Base):
+    __tablename__ = 'cell'
 
     locker_id = Column(Integer, ForeignKey('locker.locker_id'))
     cell_id = Column(Integer, nullable=False)
     occupied = Column(Boolean, nullable=False, default=False)
     PrimaryKeyConstraint(locker_id, cell_id)
 
-print ("LockerStatus model created successfully.")
+print ("Cell model created successfully.")
 class Locker(Base):
     __tablename__ = 'locker'
 
@@ -19,6 +19,6 @@ class Locker(Base):
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
 
-    cells = relationship('LockerStatus', backref='locker', lazy=True)
+    cells = relationship('Cell', backref='locker', lazy=True)
 
 print ("Locker model created successfully.")
