@@ -13,7 +13,7 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 class OrderRequest(BaseModel):
-    package_id: int
+    parcel_id: int
     sender_id: int
     recipient_id: int
     sending_locker_id: str
@@ -34,29 +34,29 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     return new_order
 
 
-#GET order bằng package_id
-@router.get("/{package_id}", response_model= OrderRequest)
-def get_package(package_id: int, db: Session = Depends(get_db), ):
-    package = db.query(Order).filter(Order.package_id == package_id).first()
+#GET order bằng parcel_id
+@router.get("/{parcel_id}", response_model= OrderRequest)
+def get_package(parcel_id: int, db: Session = Depends(get_db), ):
+    package = db.query(Order).filter(Order.parcel_id == parcel_id).first()
     if not package:
         raise HTTPException(status_code=404, detail="Order not found")
     return package
     
 
 #GET order bằng cả user và package
-@router.get("/{user_id}/{package_id}", response_model=OrderRequest)
-def get_package(user_id: int, package_id: int, db: Session = Depends(get_db)):
-    package = db.query(Order).filter(Order.user_id == user_id, Order.package_id == package_id).first()
+@router.get("/{user_id}/{parcel_id}", response_model=OrderRequest)
+def get_package(user_id: int, parcel_id: int, db: Session = Depends(get_db)):
+    package = db.query(Order).filter(Order.user_id == user_id, Order.parcel_id == parcel_id).first()
     if not package:
         raise HTTPException(status_code=404, detail="Order not found")
     return package
 
 
-#update order bằng package_id    
-@router.put("/{package_id}", response_model=OrderRequest)
-def update_package(package_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
+#update order bằng parcel_id    
+@router.put("/{parcel_id}", response_model=OrderRequest)
+def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
-    package_put = db.query(Order).filter(Order.package_id == package_id).update(
+    package_put = db.query(Order).filter(Order.parcel_id == parcel_id).update(
         _package.model_dump(
             exclude_unset=True, 
             exclude_none=True
@@ -70,10 +70,10 @@ def update_package(package_id: int, _package: OrderRequest, db: Session = Depend
     return package_put
 
 
-#delete order bằng package_id
-@router.delete("/{package_id}", response_model=OrderRequest)
-def delete_package(package_id: int, db: Session = Depends(get_db)):
-    package_delete = db.query(Order).filter(Order.package_id == package_id).first()
+#delete order bằng parcel_id
+@router.delete("/{parcel_id}", response_model=OrderRequest)
+def delete_package(parcel_id: int, db: Session = Depends(get_db)):
+    package_delete = db.query(Order).filter(Order.parcel_id == parcel_id).first()
     #nếu order không được tìm thấy thì là not found
     if not package_delete:
         raise HTTPException(status_code=404, detail="Order not found")

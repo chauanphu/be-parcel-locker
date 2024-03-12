@@ -8,7 +8,7 @@ class Order(Base):
 
     __tablename__ = 'order'
 
-    package_id = Column(String,primary_key=True, index=True) 
+    parcel_id = Column(String,primary_key=True, index=True) 
     sender_id = Column(VARCHAR(20), nullable=False)
     recipient_id = Column(VARCHAR(20), nullable=False)
     sending_locker_id = Column(String, nullable=False)
