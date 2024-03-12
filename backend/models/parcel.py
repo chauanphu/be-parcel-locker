@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Sequence, VARCHAR , ForeignKey, Float,PrimaryKeyConstraint
-from sqlalchemy.orm import relationship
+
 from database.__init__ import Base
+from models.order import Order
 
 
 class Parcel(Base):
@@ -15,7 +16,6 @@ class Parcel(Base):
     height = Column(Float, nullable=False)
     weight = Column(Float, nullable=False)
     parcel_size = Column(String, nullable=False) 
-    order = relationship("Order", back_populates="parcel")
 
 
 print("Parcel model created successfully.")

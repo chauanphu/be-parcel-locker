@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, VARCHAR, Date
+from sqlalchemy.orm import relationship
 from database.__init__ import Base
 
 class Order(Base):
@@ -16,5 +17,7 @@ class Order(Base):
     ordering_date = Column(Date) 
     sending_date = Column(Date)
     receiving_date = Column(Date)
+    
+    order = relationship( 'Parcel', backref= 'order',lazy=True)
 
 print("Order model created successfully.")
