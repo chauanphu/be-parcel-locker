@@ -32,7 +32,7 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
     db.commit()
     return {"message": "User created successfully"}
 
-
+#1 token là 1 user
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
         form_data: OAuth2PasswordRequestForm = Depends(),
