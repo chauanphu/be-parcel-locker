@@ -19,7 +19,6 @@ class OrderRequest(BaseModel):
     sending_date: date
     receiving_date: date
 
-
 #tạo order
 @router.post("/", response_model=OrderRequest)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
