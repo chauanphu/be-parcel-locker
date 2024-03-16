@@ -6,6 +6,8 @@ from auth.utils import get_current_user
 from sqlalchemy.orm import Session
 from database.session import get_db
 from models.order import Order
+from routers.parcel import Parcel, ParcelRequest, create_parcel
+from typing import List
 
 router = APIRouter(
     prefix="/order",
@@ -13,46 +15,45 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 class OrderRequest(BaseModel):
-    parcel_id: int
-    sender_id: int
-    recipient_id: int
+    sender_id: str
+    recipient_id: str
+    sending_locker_id: str
+    receiving_locker_id: str
+    ordering_date: date
+    sending_date: date
+    receiving_date: date
+
+class OrderResponse(OrderRequest):
+    order_id: int
+    sender_id: str
+    recipient_id: str
     sending_locker_id: str
     receiving_locker_id: str
     ordering_date:date
     sending_date: date
     receiving_date: date
+    parcels: List[ParcelRequest]
 
 
-#tạo order
+#create order that can add as many parcel as user needs
 @router.post("/", response_model=OrderRequest)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
-#Đối tượng new_order mới được tạo sẽ được thêm vào database bằng phương thức add()
-    new_order = Order(**order.dict())
+    new_order = Order(**order.model_dump())
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
     return new_order
 
-
-#GET order bằng parcel_id
-@router.get("/{parcel_id}", response_model= OrderRequest)
-def get_package(parcel_id: int, db: Session = Depends(get_db), ):
-    package = db.query(Order).filter(Order.parcel_id == parcel_id).first()
-    if not package:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return package
-    
-
-#GET order bằng cả user và package
-@router.get("/{user_id}/{parcel_id}", response_model=OrderRequest)
-def get_package(user_id: int, parcel_id: int, db: Session = Depends(get_db)):
-    package = db.query(Order).filter(Order.user_id == user_id, Order.parcel_id == parcel_id).first()
-    if not package:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return package
+#Get all orders and parcels that has the order_id of that order of a defined sender_id
+@router.get("/{sender_id}", response_model=List[OrderResponse])
+def get_order(sender_id: str, db: Session = Depends(get_db)):
+    orders = db.query(Order).filter(Order.sender_id == sender_id).all()
+    if not orders:
+        raise HTTPException(status_code=404, detail="User has not created any orders")
+    return orders
 
 
-#update order bằng parcel_id    
+#update order by user_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
