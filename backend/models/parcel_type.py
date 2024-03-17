@@ -9,7 +9,7 @@ class ParcelType(Base):
     """
     __tablename__ = 'parcel_type'
     
-    parcel_type_id = Column(Integer, primary_key=True)
+    parcel_type_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False) 
 
 
