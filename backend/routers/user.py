@@ -45,13 +45,6 @@ class UserResponse(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
 
-class Recipient(BaseModel):
-    recipient_id: uuid.uuid4
-    name: str
-    phone: str
-    email: str
-    address: str
-
 # A POST REQUEST TO CREATE USER
     #tạo cần profile
 @router.post('/', status_code=status.HTTP_201_CREATED)
@@ -78,7 +71,7 @@ async def create_user_without_profile(create_free_user:UserRequest, db:Session =
     user = authenticate_user(create_free_user.username, create_free_user.password, db)
     if user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Email already exists')
+                            detail='User already exists')
     create_free_user.password = bcrypt_context.hash(create_free_user.password)
     db_user = User(**create_free_user.model_dump())
     print(db_user)
