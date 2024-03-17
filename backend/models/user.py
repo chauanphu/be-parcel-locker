@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = 'user'
     
     # user_id = Column(Integer, TABLE_ID, primary_key=True, server_default=TABLE_ID.next_value())
-    user_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(String, primary_key=True, index=True, autoincrement=True)
     email = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     username = Column(VARCHAR(20), nullable=False)

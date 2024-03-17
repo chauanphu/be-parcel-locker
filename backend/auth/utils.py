@@ -18,6 +18,7 @@ def authenticate_user(username: str, password: str, db):
         return False
     return user
 
+
 def create_access_token(username: str, expires_delta: timedelta):
     payload = {'sub': username}
     expires = datetime.utcnow() + expires_delta
