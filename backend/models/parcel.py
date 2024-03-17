@@ -9,7 +9,7 @@ class Parcel(Base):
     """
     __tablename__ = 'parcel'
     
-    parcel_id = Column(String, ForeignKey('order.parcel_id') ,primary_key=True)
+    parcel_id = Column(Integer, ForeignKey('order.order_id') ,primary_key=True)
     width = Column(Integer, nullable=False)
     length = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
