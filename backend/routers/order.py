@@ -15,6 +15,13 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+class ParcelResponse(BaseModel):
+    width: int
+    length: int
+    height: int
+    weight: int
+    parcel_size: str
+
 class ParcelRequest(BaseModel):
     width: int
     length: int
@@ -34,7 +41,7 @@ class OrderRequest(BaseModel):
 
 class OrderResponse(BaseModel):
     order_id: int
-    parcel: ParcelRequest
+    parcel: ParcelResponse
     sender_id: int
     recipient_id: int
     sending_locker_id: str
@@ -46,10 +53,10 @@ class OrderResponse(BaseModel):
 # Return all order along with their parcels
 def join_order_parcel(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
-    return query.all()
+    return query
 
 #tạo order
-@router.post("/")
+@router.post("/", response_model=OrderResponse)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     new_order = order.model_dump(exclude_none=True, exclude_unset=True)
     parcel = new_order.pop('parcel')
@@ -62,27 +69,18 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     db.add(new_parcel)
     db.commit()
     # Return the newly created order with the parcel for OrderResponse
-    query = db.query(Order).join(Parcel, Order.order_id == Parcel.parcel_id)
+    query = join_order_parcel(db)
     return query.filter(Order.order_id == new_order.order_id).first()
 
 
 #GET order bằng parcel_id
-@router.get("/{parcel_id}")
-def get_package(parcel_id: int, db: Session = Depends(get_db), ):
+@router.get("/{order_id}", response_model=OrderResponse)
+def get_package(order_id: int, db: Session = Depends(get_db), ):
     query = join_order_parcel(db)
+    query = query.filter(Order.order_id == order_id).first()
     if not query:
         raise HTTPException(status_code=404, detail="Order not found")
     return query
-    
-
-#GET order bằng cả user và package
-@router.get("/{user_id}/{parcel_id}", response_model=OrderRequest)
-def get_package(user_id: int, parcel_id: int, db: Session = Depends(get_db)):
-    package = db.query(Order).filter(Order.user_id == user_id, Order.order_id == parcel_id).first()
-    if not package:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return package
-
 
 #update order bằng parcel_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)

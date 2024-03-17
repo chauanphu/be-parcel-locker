@@ -18,6 +18,6 @@ class Order(Base):
     sending_date = Column(Date)
     receiving_date = Column(Date)
     
-    parcel = relationship( 'Parcel', backref= 'order',lazy=True)
+    parcel = relationship( 'Parcel', backref= 'order',lazy=True, uselist=False)
 
 print("Order model created successfully.")
