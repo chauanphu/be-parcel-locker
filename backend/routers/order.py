@@ -49,8 +49,9 @@ class OrderResponse(BaseModel):
     ordering_date:date
     sending_date: date
     receiving_date: date
+    parcel: ParcelResponse
 
-# Return all order along with their parcels
+# Return all order along with their parcel
 def join_order_parcel(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
@@ -82,7 +83,7 @@ def get_package(order_id: int, db: Session = Depends(get_db), ):
         raise HTTPException(status_code=404, detail="Order not found")
     return query
 
-#update order bằng parcel_id    
+#update order by user_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
