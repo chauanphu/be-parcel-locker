@@ -1,14 +1,32 @@
 from datetime import date
+import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database.session import get_db
-from models.order import Order
+from models.order import Order, Send
 
 router = APIRouter(
     prefix="/order",
     tags=["order"],
 )
+
+class Recipient(BaseModel):
+    receipient_id: uuid.uuid4
+    name: str
+    phone: str
+    address: str
+
+class SendRequest(BaseModel):
+    package_id: int
+    sender_id: int
+    recipient: Recipient
+    sending_locker_id: str
+    receiving_locker_id: str
+    ordering_date:date
+    sending_date: date
+    receiving_date: date
+
 class OrderRequest(BaseModel):
     package_id: int
     sender_id: int
@@ -19,6 +37,7 @@ class OrderRequest(BaseModel):
     sending_date: date
     receiving_date: date
 
+
 #tạo order
 @router.post("/", response_model=OrderRequest)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
@@ -28,6 +47,17 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_order)
     return new_order
+
+# def send_to_recipient(package_id: int, sender_id: int, recipient: Receipient, sending_locker_id)
+
+@router.post("/send", response_model = SendRequest)
+def send_order(send: SendRequest ,db: Session = Depends(get_db)):
+    new_send = Send(**send.dict())
+    db.add(new_send)
+    db.commit()
+    db.refresh(new_send)
+    return new_send
+
 
 
 #GET order bằng package_id
