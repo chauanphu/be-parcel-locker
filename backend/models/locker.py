@@ -8,7 +8,9 @@ class Cell(Base):
     locker_id = Column(Integer, ForeignKey('locker.locker_id'))
     cell_id = Column(Integer, nullable=False)
     occupied = Column(Boolean, nullable=False, default=False)
-    PrimaryKeyConstraint(locker_id, cell_id)
+    is_sending = Column(Boolean, nullable=False, default=False)
+    order_id = Column(Integer, index=True)  
+    PrimaryKeyConstraint(locker_id, cell_id, order_id)
 
 print ("Cell model created successfully.")
 class Locker(Base):
