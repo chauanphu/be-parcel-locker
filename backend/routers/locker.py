@@ -37,6 +37,11 @@ class LockerResponse(BaseModel):
     longitude: float
     cells: List[CellResponse]
 
+class LockerInfoResponse(BaseModel):
+    address: str
+    latitude: float
+    longitude: float
+
 class LockerCreateRequest(BaseModel):
     address: str
     latitude: float
