@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
 from auth.utils import get_current_user
+from uuid import UUID
 
 router = APIRouter(
     prefix="/locker",
@@ -27,7 +28,7 @@ class CellIDResponse(BaseModel):
     
 class CellIDRequest(BaseModel):
     locker_id : int
-    order_id : int
+    order_id : UUID
 
 class LockerResponse(BaseModel):
     locker_id: int
@@ -54,17 +55,6 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Locker not found")
     return locker
 
-
-#Get cell_id, is_sending by locker_id, order_id 
-@router.get("/{cell_id}", response_model=CellIDResponse)
-async def get_cellID(locker_id: int, order_id: int,  db: Session = Depends(get_db)):
-    # Get cell_id by locker_id
-    cell = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.order_id == order_id ).first()
-    # If not found, raise 404
-    if not cell:
-        raise HTTPException(status_code=404, detail= "Cell not found")
-    return cell
-
 @router.post("/", response_model=int)
 async def create_locker(locker: LockerCreateRequest, db: Session = Depends(get_db)):
     # Add new locker
@@ -73,6 +63,15 @@ async def create_locker(locker: LockerCreateRequest, db: Session = Depends(get_d
     db.commit()
     db.refresh(locker)
     return locker.locker_id
+
+@router.post("/{locker_id}/cell", response_model=UUID)
+async def create_cell(locker_id: int, db: Session = Depends(get_db)):
+    # Add new cell
+    cell = Cell(locker_id=locker_id)
+    db.add(cell)
+    db.commit()
+    db.refresh(cell)
+    return cell.cell_id
 
 @router.put("/{locker_id}", response_model=int)
 async def update_locker(locker_id: int, _locker: CellRequest, db: Session = Depends(get_db)):
