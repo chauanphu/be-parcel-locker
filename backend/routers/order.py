@@ -6,7 +6,7 @@ from auth.utils import get_current_user
 from sqlalchemy.orm import Session, joinedload
 from database.session import get_db
 from models.order import Order
-from routers.parcel import ParcelRequest
+from routers.parcel import ParcelRequest, Parcel
 from typing import List
 
 router = APIRouter(
