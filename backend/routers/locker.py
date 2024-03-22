@@ -36,6 +36,11 @@ class LockerResponse(BaseModel):
     longitude: float
     cells: List[CellResponse]
 
+class LockerCreateRequest(BaseModel):
+    address: str
+    latitude: float
+    longitude: float
+
 @router.get("/", response_model=List[LockerResponse])
 async def get_lockers(db: Session = Depends(get_db)):
     return db.query(Locker).all()
@@ -60,7 +65,14 @@ async def get_cellID(locker_id: int, order_id: int,  db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail= "Cell not found")
     return cell
 
-
+@router.post("/", response_model=int)
+async def create_locker(locker: LockerCreateRequest, db: Session = Depends(get_db)):
+    # Add new locker
+    locker = Locker(**locker.model_dump())
+    db.add(locker)
+    db.commit()
+    db.refresh(locker)
+    return locker.locker_id
 
 @router.put("/{locker_id}", response_model=int)
 async def update_locker(locker_id: int, _locker: CellRequest, db: Session = Depends(get_db)):

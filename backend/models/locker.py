@@ -16,7 +16,7 @@ print ("Cell model created successfully.")
 class Locker(Base):
     __tablename__ = 'locker'
 
-    locker_id = Column(Integer, primary_key=True)
+    locker_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     address = Column(String, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
