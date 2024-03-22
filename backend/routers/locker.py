@@ -20,6 +20,14 @@ class CellRequest(BaseModel):
 class CellResponse(BaseModel):
     cell_id: int
     occupied: bool
+    
+class CellIDResponse(BaseModel):
+    cell_id : int
+    is_sending : bool
+    
+class CellIDRequest(BaseModel):
+    locker_id : int
+    order_id : int
 
 class LockerResponse(BaseModel):
     locker_id: int
@@ -40,6 +48,19 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
     if not locker:
         raise HTTPException(status_code=404, detail="Locker not found")
     return locker
+
+
+#Get cell_id, is_sending by locker_id, order_id 
+@router.get("/{cell_id}", response_model=CellIDResponse)
+async def get_cellID(locker_id: int, order_id: int,  db: Session = Depends(get_db)):
+    # Get cell_id by locker_id
+    cell = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.order_id == order_id ).first()
+    # If not found, raise 404
+    if not cell:
+        raise HTTPException(status_code=404, detail= "Cell not found")
+    return cell
+
+
 
 @router.put("/{locker_id}", response_model=int)
 async def update_locker(locker_id: int, _locker: CellRequest, db: Session = Depends(get_db)):

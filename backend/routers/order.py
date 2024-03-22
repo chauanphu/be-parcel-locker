@@ -1,9 +1,9 @@
 from datetime import date
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from auth.utils import get_current_user
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from database.session import get_db
 from models.order import Order
 from routers.parcel import ParcelRequest
@@ -14,19 +14,36 @@ router = APIRouter(
     tags=["order"],
     dependencies=[Depends(get_current_user)]
 )
+
+class ParcelResponse(BaseModel):
+    width: int
+    length: int
+    height: int
+    weight: int
+    parcel_size: str
+
+class ParcelRequest(BaseModel):
+    width: int
+    length: int
+    height: int
+    weight: int
+    parcel_size: str
+
 class OrderRequest(BaseModel):
-    sender_id: str
-    recipient_id: str
+    parcel: ParcelRequest
+    sender_id: int
+    recipient_id: int
     sending_locker_id: str
     receiving_locker_id: str
-    ordering_date: date
+    ordering_date:date
     sending_date: date
     receiving_date: date
 
-class OrderResponse(OrderRequest):
+class OrderResponse(BaseModel):
     order_id: int
-    sender_id: str
-    recipient_id: str
+    parcel: ParcelResponse
+    sender_id: int
+    recipient_id: int
     sending_locker_id: str
     receiving_locker_id: str
     ordering_date:date
@@ -34,30 +51,43 @@ class OrderResponse(OrderRequest):
     receiving_date: date
     parcels: ParcelRequest
 
+# Return all order along with their parcel
+def join_order_parcel(db: Session = Depends(get_db)):
+    query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
+    return query
 
-#create order that can add as many parcel as user needs
-@router.post("/", response_model=OrderRequest)
+#tạo order
+@router.post("/", response_model=OrderResponse)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
-    new_order = Order(**order.model_dump())
+    new_order = order.model_dump(exclude_none=True, exclude_unset=True)
+    parcel = new_order.pop('parcel')
+    new_order = Order(**new_order)
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
-    return new_order
+    parcel['parcel_id'] = new_order.order_id
+    new_parcel = Parcel(**parcel)
+    db.add(new_parcel)
+    db.commit()
+    # Return the newly created order with the parcel for OrderResponse
+    query = join_order_parcel(db)
+    return query.filter(Order.order_id == new_order.order_id).first()
 
-#Get all orders and parcels that has the order_id of that order of a defined sender_id
-@router.get("/{sender_id}", response_model=List[OrderResponse])
-def get_order(sender_id: str, db: Session = Depends(get_db)):
-    orders = db.query(Order).filter(Order.sender_id == sender_id).all()
-    if not orders:
-        raise HTTPException(status_code=404, detail="User has not created any orders")
-    return orders
 
+#GET order bằng parcel_id
+@router.get("/{order_id}", response_model=OrderResponse)
+def get_package(order_id: int, db: Session = Depends(get_db), ):
+    query = join_order_parcel(db)
+    query = query.filter(Order.order_id == order_id).first()
+    if not query:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return query
 
 #update order by user_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
-    package_put = db.query(Order).filter(Order.parcel_id == parcel_id).update(
+    package_put = db.query(Order).filter(Order.order_id == parcel_id).update(
         _package.model_dump(
             exclude_unset=True, 
             exclude_none=True
@@ -74,7 +104,7 @@ def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends
 #delete order bằng parcel_id
 @router.delete("/{parcel_id}", response_model=OrderRequest)
 def delete_package(parcel_id: int, db: Session = Depends(get_db)):
-    package_delete = db.query(Order).filter(Order.parcel_id == parcel_id).first()
+    package_delete = db.query(Order).filter(Order.order_id == parcel_id).first()
     #nếu order không được tìm thấy thì là not found
     if not package_delete:
         raise HTTPException(status_code=404, detail="Order not found")

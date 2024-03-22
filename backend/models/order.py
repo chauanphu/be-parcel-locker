@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Date, VARCHAR, ForeignKey, PrimaryKeyConstraint, Integer, Sequence
+from sqlalchemy import Column, String, VARCHAR, Date, Integer
 from sqlalchemy.orm import relationship
 from database.__init__ import Base
 
@@ -7,9 +7,9 @@ class Order(Base):
     Represents an order.
     """
 
-    __tablename__ = 'order_table'
+    __tablename__ = 'order'
 
-    order_id = Column(Integer, Sequence('order_id_seq'))
+    order_id = Column(Integer,primary_key=True, index=True) 
     sender_id = Column(VARCHAR(20), nullable=False)
     recipient_id = Column(VARCHAR(20), nullable=False)
     sending_locker_id = Column(String, nullable=False)
@@ -17,7 +17,7 @@ class Order(Base):
     ordering_date = Column(Date) 
     sending_date = Column(Date)
     receiving_date = Column(Date)
-    PrimaryKeyConstraint(order_id)
-    parcels = relationship("Parcel", back_populates="order", lazy=True)
+    
+    parcel = relationship( 'Parcel', backref= 'order',lazy=True, uselist=False)
 
 print("Order model created successfully.")
