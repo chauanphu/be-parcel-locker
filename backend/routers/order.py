@@ -6,7 +6,7 @@ from auth.utils import get_current_user
 from sqlalchemy.orm import Session
 from database.session import get_db
 from models.order import Order
-from routers.parcel import Parcel, ParcelRequest, create_parcel
+from routers.parcel import ParcelRequest
 from typing import List
 
 router = APIRouter(
@@ -32,7 +32,7 @@ class OrderResponse(OrderRequest):
     ordering_date:date
     sending_date: date
     receiving_date: date
-    parcels: List[ParcelRequest]
+    parcels: ParcelRequest
 
 
 #create order that can add as many parcel as user needs
@@ -86,3 +86,10 @@ def delete_package(parcel_id: int, db: Session = Depends(get_db)):
     db.commit()
     return package_delete
 
+# Get cell
+@router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
+def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
+    package = db.query(Order).filter(Order.locker_id == locker_id).filter(Order.parcel_id == parcel_id).first()
+    if not package:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return package
