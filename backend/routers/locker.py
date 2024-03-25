@@ -21,7 +21,7 @@ class CellRequest(BaseModel):
     occupied: bool
 
 class CellResponse(BaseModel):
-    cell_id: int
+    cell_id: UUID
     occupied: bool
     
 class CellIDResponse(BaseModel):
