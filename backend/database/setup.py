@@ -1,4 +1,4 @@
-import models
+from models import user, locker, order, parcel_type, parcel
 from .__init__ import Base, engine
 
 from models.user import User
