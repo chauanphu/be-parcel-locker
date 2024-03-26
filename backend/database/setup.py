@@ -11,7 +11,7 @@ ADMIN_PASSWORD = config("ADMIN_PASSWORD")
 def create_default_admin():
     with session as db:
     # Check if the admin user already exists
-        admin = authenticate_user('admin@example.com', 'admin', db)
+        admin = db.query(user.Account).filter(user.Account.username == ADMIN_USERNAME).first()
         # Check if the admin role already exists
         role_admin = db.query(user.Role).filter(user.Role.role_name == 'admin').first()
         if not role_admin:

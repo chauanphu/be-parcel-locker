@@ -4,9 +4,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status
 from sqlalchemy.orm import Session
 from starlette import status
-from auth.utils import authenticate_user, create_access_token
+from auth.utils import authenticate_user, create_access_token, bcrypt_context
 from database.session import get_db
+from models.user import Account
 from pydantic import BaseModel
+import uuid
 
 router = APIRouter(
     prefix='/auth',
@@ -32,6 +34,32 @@ async def login_for_access_token(
         "access_token": token, 
         "token_type": 'bearer'
     }
+
+class CreateAccountRequest(BaseModel):
+    username: str
+    password: str
+    role_id: int
+
+
+class AccountResponse(BaseModel):
+    user_id: str
+    username: str
+
+@router.post("/account")
+def create_account(account: CreateAccountRequest, db: Session = Depends(get_db)):
+    account_exists = db.query(Account).filter(Account.username == account.username).first()
+    if account_exists:
+        raise HTTPException(status_code=status.HTTP_400, detail="Account already exists")
+    new_account = Account(
+        user_id=uuid.uuid4(),
+        username=account.username,
+        password=bcrypt_context.hash(account.password),
+        role_id=account.role_id
+    )
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return new_account
 
 # @router.get("/login", status_code=status.HTTP_200_OK)
 # async def user(current_user: User = Depends(get_current_user)):

@@ -24,7 +24,6 @@ class Account(Base):
     user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username= Column(VARCHAR(20), nullable=False, unique=True)
     # Create email with validation for valid email, and unique constraint
-    email = Column(String, nullable=False, unique=True)
     password = Column(String(), nullable=False)
     role_id = Column(Integer,  ForeignKey('role.role_id'), nullable=False)
     
@@ -40,5 +39,7 @@ class Profile(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     phone_number = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    address = Column(String, nullable=False)
     
     account = relationship('Account', backref='profile', lazy=True, foreign_keys=[user_id], uselist=False)
