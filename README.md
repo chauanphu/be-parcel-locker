@@ -1,12 +1,43 @@
 # Backend of Parcel Locker
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+# Table of Content
+
+- [Description](#description)
+- [Tools and Languages](#tools-and-languages)
+- [Install](#install)
+- [Migration](#migration)
+- [MoSCoW Analysis](#moscow-analysis)
+- [Schema Design](#schema-design)
 
 ## Description
 
 A parcel locker, also known as a package locker or self-service delivery kiosk, is an automated system that allows for secure and convenient storage and delivery of packages. Essentially, it's like a giant vending machine for your parcels.
 
 Parcel lockers are becoming increasingly popular as online shopping and delivery services grow. They offer a convenient and flexible solution for both individuals and businesses looking for a secure and efficient way to receive and send packages.
+
+## Tools and Languages
+
+- Backend
+
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff&style=flat)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white&style=flat)](https://fastapi.tiangolo.com/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-1.4.23-red?logo=sqlalchemy&logoColor=white&style=flat)](https://www.sqlalchemy.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?logo=postgresql&logoColor=white&style=flat)](https://www.postgresql.org/)
+[![Alembic](https://img.shields.io/badge/Alembic-0.9.10-blue?logo=alembic&logoColor=white&style=flat)](https://alembic.sqlalchemy.org/)
+
+## Install
+
+- Create virtual environment: python `python3 -m venv venv`
+- Activate virtual environment: `/venv/Scripts/activate`
+- Install all dependenies: `pip install -r requirements.txt`
+
+## Migration
+
+- Initiate alembic: `alembic init alembic`
+- Migrate new update: `alembic revision --autogenerate -m "{changes}"`
+- Allply migration (deployment): `alembic upgrade head`
 
 ## MoSCoW Analysis
 
@@ -70,14 +101,6 @@ Provide instructions on how to install the app.
 ## Usage
 
 Explain how to use the app and provide examples if necessary.
-
-<!-- markdownlint-disable MD033 -->
-## Technologies Used
-<!-- markdownlint-enable MD033 -->
-
-- Technology 1
-- Technology 2
-- Technology 3
 
 ## Contributing
 
