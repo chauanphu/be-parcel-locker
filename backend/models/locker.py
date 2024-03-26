@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Enum
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from database.__init__ import Base
@@ -8,7 +8,8 @@ class Cell(Base):
     __tablename__ = 'cell'
 
     locker_id = Column(Integer, ForeignKey('locker.locker_id'), nullable=False,)
-    cell_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)    
+    cell_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    size = Column(Enum('S', 'M', 'L', name='size'), nullable=False)
     occupied = Column(Boolean, nullable=False, default=False)
 
 print ("Cell model created successfully.")

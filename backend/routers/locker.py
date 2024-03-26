@@ -7,8 +7,14 @@ from typing import List
 from pydantic import BaseModel
 from auth.utils import get_current_user
 from uuid import UUID
+from enum import Enum
 
 from models.order import Order
+
+class SizeEnum(str, Enum):
+    S = 'S'
+    M = 'M'
+    L = 'L'
 
 router = APIRouter(
     prefix="/locker",
@@ -16,13 +22,13 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-class CellRequest(BaseModel):
-    cell_id: UUID
-    occupied: bool
+class CellRequestCreate(BaseModel):
+    size: SizeEnum
 
 class CellResponse(BaseModel):
-    cell_id: int
+    cell_id: UUID   
     occupied: bool
+    size: SizeEnum
     
 class CellIDResponse(BaseModel):
     cell_id : UUID
@@ -87,16 +93,16 @@ async def create_locker(locker: LockerCreateRequest, db: Session = Depends(get_d
     return locker.locker_id
 
 @router.post("/{locker_id}/cell", response_model=UUID)
-async def create_cell(locker_id: int, db: Session = Depends(get_db)):
+async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
     # Add new cell
-    cell = Cell(locker_id=locker_id)
+    cell = Cell(locker_id=locker_id, size=cell_info.size)
     db.add(cell)
     db.commit()
     db.refresh(cell)
     return cell.cell_id
 
 @router.put("/{locker_id}", response_model=int)
-async def update_locker(locker_id: int, _locker: CellRequest, db: Session = Depends(get_db)):
+async def update_locker(locker_id: int, _locker: CellRequestCreate, db: Session = Depends(get_db)):
     # Update locker status, allow partial update
     db_locker = db.query(Cell).filter(Cell.locker_id == locker_id).update(_locker.model_dump(
         exclude_unset=True, 

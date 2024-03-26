@@ -1,17 +1,12 @@
-import models
+from models import user, locker, order, parcel_type, parcel
 from .__init__ import Base, engine
 
 from models.user import User
 from auth.utils import bcrypt_context, authenticate_user
-from database.session import get_db
 from decouple import config
 from .session import session
 ADMIN_USERNAME = config("ADMIN_USERNAME")
 ADMIN_PASSWORD = config("ADMIN_PASSWORD")
-
-Base.metadata.create_all(bind=engine)
-print("Database tables created")
-
 
 def create_default_admin():
     with session as db:
@@ -34,6 +29,3 @@ def create_default_admin():
         db.add(admin_request)
         db.commit()
         print("Admin user created successfully.")
-
-# Call the function during application startup
-create_default_admin()
