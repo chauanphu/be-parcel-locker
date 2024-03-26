@@ -24,12 +24,11 @@ def create_access_token(username: str, expires_delta: timedelta):
     payload.update({'exp': expires})
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-
-def get_current_user(token: str = Depends(oauth2_bearer)):
+def get_current_user(token: str = Depends(oauth2_bearer), db = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get('sub')
-        # user = db.query(Account).filter(Account.username == username).first()
+        user = db.query(Account).filter(Account.username == username).first()
         if username is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail='Could not validate user')
@@ -38,3 +37,16 @@ def get_current_user(token: str = Depends(oauth2_bearer)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Could not validate user')
 
+def authorize_user(token: str = Depends(oauth2_bearer), db = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get('sub')
+        user = db.query(Account).filter(Account.username == username).first()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail='Could not validate user')
+        
+        return {'username': username}
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail='Could not validate user')

@@ -5,32 +5,17 @@ from starlette import status
 from sqlalchemy.orm import Session
 from starlette import status
 from auth.utils import authenticate_user, create_access_token
-from routers.user import create_user_without_profile
 from database.session import get_db
 from pydantic import BaseModel
-from models.user import User
 
 router = APIRouter(
     prefix='/auth',
     tags=['auth']
 )
 
-class Login(BaseModel):
-    username: str
-    password: str
-
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-@router.post("/login")
-def login(login_in:Login, db: Session = Depends(get_db)):
-    user = authenticate_user(login_in.username, login_in.password, db)
-    if not user:
-        create_user_without_profile()
-    if user:
-        print(user)
-    return {"messsage": "Login successfully"}
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(

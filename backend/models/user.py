@@ -25,7 +25,7 @@ class Account(Base):
     username= Column(VARCHAR(20), nullable=False, unique=True)
     # Create email with validation for valid email, and unique constraint
     email = Column(String, nullable=False, unique=True)
-    password = Column(VARCHAR(20), nullable=False)
+    password = Column(String(), nullable=False)
     role_id = Column(Integer,  ForeignKey('role.role_id'), nullable=False)
     
     role = relationship('Role', backref='account', lazy=True, foreign_keys=[role_id], uselist=False)
