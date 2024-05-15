@@ -12,7 +12,10 @@ router = APIRouter(
     tags=["user"],
     dependencies=[Depends(get_current_user)]
 )
-
+router2 = APIRouter(
+    prefix="/user2",
+    tags=["user2"]
+)
 
 class UserRequest(BaseModel):
     name: Optional[str] = None
@@ -61,6 +64,19 @@ def update_user(user_id: int, _user: UserRequest, db: Session = Depends(get_db))
 
 # A POST REQUEST TO CREATE USER
 @router.post('/', status_code=status.HTTP_201_CREATED)
+async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
+    user = authenticate_user(create_user_request.email, create_user_request.password, db)
+    if user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Email already exists')
+    create_user_request.password = bcrypt_context.hash(create_user_request.password)
+    db_user = User(**create_user_request.model_dump())
+    print(db_user)
+    db.add(db_user)
+    db.commit()
+    return {"messsage": "User created successfully"}
+
+@router2.post('/', status_code=status.HTTP_201_CREATED)
 async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
     user = authenticate_user(create_user_request.email, create_user_request.password, db)
     if user:
