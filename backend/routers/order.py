@@ -52,7 +52,10 @@ class OrderResponse(BaseModel):
     sending_date: date
     receiving_date: date
     parcel: ParcelRequest
-
+class Token2(BaseModel):
+    order_id: int
+    message: str
+    
 # Return all order along with their parcel and locker
 def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
@@ -126,7 +129,7 @@ def to_dict(model_instance):
     return data
 
 #tạo order
-@router.post("/", response_model=int)
+@router.post("/", response_model=Token2)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     # Conver order to dict and remove the parcel, receiving_locker and sending_locker
     new_order = order.model_dump(exclude_none=True, exclude_unset=True)
@@ -153,7 +156,10 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     db.add(new_parcel)
     db.commit()
     # Return the newly created order with the parcel for OrderResponse
-    return new_order.order_id
+    return {
+        "order_id": new_order.order_id, 
+        "message": 'Successfully created'
+            }
 
 #GET order bằng parcel_id
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -193,7 +199,7 @@ def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends
 
 
 #delete order bằng parcel_id
-@router.delete("/{parcel_id}", response_model=OrderRequest)
+@router.delete("/{parcel_id}", response_model=str)
 def delete_package(parcel_id: int, db: Session = Depends(get_db)):
     package_delete = db.query(Order).filter(Order.order_id == parcel_id).first()
     #nếu order không được tìm thấy thì là not found
@@ -205,7 +211,9 @@ def delete_package(parcel_id: int, db: Session = Depends(get_db)):
 
     db.delete(package_delete)
     db.commit()
-    return package_delete
+    return {
+        "Message": "Order deleted"
+    }
 
 # Get cell
 @router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
