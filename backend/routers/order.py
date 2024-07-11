@@ -78,7 +78,6 @@ def find_available_cell(locker_id: int, db: Session = Depends(get_db)):
 def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(get_db)):
     """
     Changes the occupied status of the specified cell.
-
     Parameters:
     - cell_id (uuid): The ID of the cell to change the status of.
     - occupied (bool): The new occupied status of the cell.
