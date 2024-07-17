@@ -20,6 +20,7 @@ class Locker(Base):
     address = Column(String, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
+    status = Column(Enum('Active', 'Inactive', name='status'), nullable=False)
 
     cells = relationship('Cell', backref='locker', lazy=True)
 

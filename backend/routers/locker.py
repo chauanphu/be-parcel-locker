@@ -43,6 +43,7 @@ class LockerResponse(BaseModel):
     address: str
     latitude: float
     longitude: float
+    status: str
     cells: List[CellResponse]
 
 class LockerInfoResponse(BaseModel):
@@ -54,6 +55,7 @@ class LockerCreateRequest(BaseModel):
     address: str
     latitude: float
     longitude: float
+    status: str
 
 @router.get("/", response_model=List[LockerResponse])
 async def get_lockers(db: Session = Depends(get_db)):
