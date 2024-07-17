@@ -116,3 +116,29 @@ async def update_locker(locker_id: int, _locker: CellRequestCreate, db: Session 
     db.commit()
     # Return 200 OK
     return locker_id
+
+# delete a locker
+@router.delete("/{locker_id}")
+def delete_locker(locker_id: int, db: Session = Depends(get_db)):
+    locker_delete = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+    
+    if locker_delete == None:
+        raise HTTPException(status_code=404, detail="Locker not found")
+    
+    # Fetch all cells associated with this locker
+    cells_delete = db.query(Cell).filter(Cell.locker_id == locker_id).all()
+    
+    for cell in cells_delete:
+        # Delete all orders associated with each cell
+        db.query(Order).filter((Order.sending_cell_id == cell.cell_id) | (Order.receiving_cell_id == cell.cell_id)).delete()
+    
+    # Delete all cells associated with this locker
+    db.query(Cell).filter(Cell.locker_id == locker_id).delete()
+    
+    
+    db.delete(locker_delete)
+    db.commit()
+    return {
+        "Message": "Locker deleted sucessfully"
+    }
+
