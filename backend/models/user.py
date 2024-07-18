@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Sequence, VARCHAR
+from sqlalchemy import Column, Integer, String, Sequence, VARCHAR,Enum,DateTime
 from database.__init__ import Base
+from datetime import datetime
 
 # TABLE_ID = Sequence('table_id_seq', start=1000)
 
@@ -17,5 +18,7 @@ class User(Base):
     address = Column(String, nullable=False)
     phone = Column(String, nullable=False)
     password = Column(String)
-
+    status = Column(Enum('Active', 'Inactive', name='status'), nullable=False,default='Active')
+    Date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
 print("User model created successfully.")
