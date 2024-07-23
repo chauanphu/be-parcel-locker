@@ -86,7 +86,7 @@ async def get_cell(locker_id: int, order_id: int, db: Session = Depends(get_db))
     return 1
 
 @router.post("/", response_model=int)
-async def create_locker(locker: LockerCreateRequest, db: Session = Depends(get_db)):
+async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
     # Add new locker
     locker = Locker(**locker.model_dump())
     db.add(locker)
