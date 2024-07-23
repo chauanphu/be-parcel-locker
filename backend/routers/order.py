@@ -10,12 +10,18 @@ from models.locker import Cell, Locker
 from models.order import Order
 from routers.locker import LockerInfoResponse
 from routers.parcel import ParcelRequest, Parcel
+from enum import Enum
 
 router = APIRouter(
     prefix="/order",
     tags=["order"],
     dependencies=[Depends(get_current_user)]
 )
+
+class OrderStatusEnum(str, Enum):
+    Ongoing = 'Ongoing'
+    Canceled = 'Canceled'
+    Completed = 'Completed'
 
 class ParcelResponse(BaseModel):
     width: int
@@ -40,6 +46,7 @@ class OrderRequest(BaseModel):
     ordering_date:date
     sending_date: date
     receiving_date: date
+    status: OrderStatusEnum
 
 class OrderResponse(BaseModel):
     order_id: int
@@ -52,6 +59,7 @@ class OrderResponse(BaseModel):
     sending_date: date
     receiving_date: date
     parcel: ParcelRequest
+    status: OrderStatusEnum
 class Token2(BaseModel):
     order_id: int
     message: str
