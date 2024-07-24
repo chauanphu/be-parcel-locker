@@ -15,6 +15,10 @@ class SizeEnum(str, Enum):
     S = 'S'
     M = 'M'
     L = 'L'
+    
+class StatusEnum(str, Enum):
+    Active = 'Active'
+    Inactive = 'Inactive'   
 
 router = APIRouter(
     prefix="/locker",
@@ -55,7 +59,7 @@ class LockerCreateRequest(BaseModel):
     address: str
     latitude: float
     longitude: float
-    status: str
+    status: StatusEnum
 
 @router.get("/", response_model=List[LockerResponse])
 async def get_lockers(db: Session = Depends(get_db)):
@@ -96,6 +100,11 @@ async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db
 
 @router.post("/{locker_id}/cell", response_model=UUID)
 async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
+    locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+    
+    # Check if locker is inactive
+    if locker is None or locker.status == "inactive":
+        raise HTTPException(status_code=400, detail="This locker is inactive")
     # Add new cell
     cell = Cell(locker_id=locker_id, size=cell_info.size)
     db.add(cell)
@@ -142,3 +151,16 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
         "Message": "Locker deleted sucessfully"
     }
 
+@router.put("/{locker_id}/cell")
+async def update_cell_to_false(locker_id: int, db: Session = Depends(get_db)):
+    # Update locker status, allow partial update
+    db_locker = db.query(Cell).filter(Cell.locker_id == locker_id).all()
+    # If not found, raise 404
+    if not db_locker:
+        raise HTTPException(status_code=404, detail="Locker not found")
+    db.query(Cell).filter(Cell.locker_id == locker_id).update({Cell.occupied: False})
+    db.commit()
+    # Return 200 OK
+    return {
+        "Message": "All cell occupied successfully updated to false"
+    }

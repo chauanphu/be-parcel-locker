@@ -18,10 +18,10 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-# class OrderStatusEnum(str, Enum):
-#     Ongoing = 'Ongoing'
-#     Canceled = 'Canceled'
-#     Completed = 'Completed'
+class OrderStatusEnum(str, Enum):
+    Ongoing = 'Ongoing'
+    Canceled = 'Canceled'
+    Completed = 'Completed'
 
 class ParcelResponse(BaseModel):
     width: int
@@ -46,7 +46,7 @@ class OrderRequest(BaseModel):
     ordering_date:date
     sending_date: date
     receiving_date: date
-    # status: OrderStatusEnum
+    
 
 class OrderResponse(BaseModel):
     order_id: int
