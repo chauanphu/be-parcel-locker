@@ -18,7 +18,7 @@ class Order(Base):
     ordering_date = Column(Date) 
     sending_date = Column(Date)
     receiving_date = Column(Date)
-    order_status = Column(Enum('Completed', 'Canceled','Ongoing', name='status'), nullable=False,default='Ongoing')
+    order_status = Column(Enum('Completed', 'Canceled','Ongoing','Delayed','Expired', name='order_status'), nullable=False,default='Ongoing')
     
     parcel = relationship( 'Parcel', backref= 'order',lazy=True, uselist=False)
     
