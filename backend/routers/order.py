@@ -139,14 +139,15 @@ def to_dict(model_instance):
 
 def determine_parcel_size(width: int, length: int, height: int, weight: int) -> str:
     # Define thresholds for parcel sizes based on individual dimensions and weight
-    if width <= 10 and length <= 10 and height <= 10 and weight <= 5:
+    if width <= 10 and length <= 10 and height <= 10 and weight <= 100:
         return "S"
-    elif width <= 20 and length <= 20 and height <= 20 and weight <= 10:
+    elif width <= 20 and length <= 20 and height <= 20 and weight <= 100:
         return "M"
-    elif width <= 30 and length <= 30 and height <= 30 and weight <= 15:
+    elif width <= 30 and length <= 30 and height <= 30 and weight <= 100:
         return "L"
     else:
-        return "XL"
+        raise HTTPException(status_code=400, detail="Over size or weight limit (quá cỡ hoặc quá trọng lượng)")
+
 #tạo order
 @router.post("/", response_model=Token2)
 def create_order(order: OrderRequest, db: Session = Depends(get_db)):
