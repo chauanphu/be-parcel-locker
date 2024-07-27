@@ -89,6 +89,14 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['parcel_id'], ['order.order_id'], ),
     sa.PrimaryKeyConstraint('parcel_id')
     )
+
+    #Role table
+    op.create_table('role',
+    sa.Column('role_id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('name', sa.String(), nullable=False),
+    sa.PrimaryKeyConstraint('role_id'),     
+    )
+    op.create_index(op.f('ix_role_role_id'), 'role', ['role_id'], unique=False)
     # ### end Alembic commands ###
 
 
@@ -104,4 +112,6 @@ def downgrade() -> None:
     op.drop_table('parcel_type')
     op.drop_index(op.f('ix_locker_locker_id'), table_name='locker')
     op.drop_table('locker')
+    op.drop_index(op.f('ix_role_role_id'), table_name='role')
+    op.drop_table('role')
     # ### end Alembic commands ###
