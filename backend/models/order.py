@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, VARCHAR, Date, Integer,Enum, DateTime
+from sqlalchemy import Column, ForeignKey, String, VARCHAR, Date, Integer,Enum, DateTime,Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from database.__init__ import Base
@@ -20,6 +20,7 @@ class Order(Base):
     receiving_date = Column(Date)
     order_status = Column(Enum('Completed', 'Canceled','Ongoing','Delayed','Expired', name='order_status'), nullable=False,default='Ongoing')
     date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
+    warnings = Column(Boolean, nullable=False, default=False)
     
     parcel = relationship( 'Parcel', backref= 'order',lazy=True, uselist=False)
     
