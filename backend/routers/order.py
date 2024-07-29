@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 import uuid
 from fastapi import APIRouter, Depends
 from fastapi import APIRouter, HTTPException, Depends
@@ -59,7 +59,10 @@ class OrderResponse(BaseModel):
     sending_date: date
     receiving_date: date
     parcel: ParcelRequest
-    # status: OrderStatusEnum
+    order_status: OrderStatusEnum
+    date_created: datetime
+    # warnings: bool
+
 class Token2(BaseModel):
     order_id: int
     message: str

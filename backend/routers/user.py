@@ -48,6 +48,7 @@ class UserResponse(BaseModel):
     address: str
     status: StatusEnum
     Date_created: datetime
+    role: int
 
 # Check theo user_id nếu quá 3 tháng không gửi/ nhận order -> inactive
 def check_user_status(user_id: int, db: Session = Depends(get_db)):

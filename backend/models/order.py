@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from database.__init__ import Base
 from datetime import datetime
+
 class Order(Base):
     """
     Represents an order.
