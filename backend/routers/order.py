@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from typing import Any, Dict
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from auth.utils import get_current_user
@@ -188,6 +189,43 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
         "parcel_size": parcel_size
     }
 
+#get order by paging
+@router.get("/",response_model=Dict[str, Any])
+async def get_paging_order(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),  # Current page number for lockers
+    per_page: int = Query(10, ge=1),  # Number of lockers per page
+):
+    
+    # Calculate the total number of orders
+    total_orders = db.query(Order).count()
+
+    # Fetch paginated list of orders
+    orders = db.query(Order).offset((page - 1) * per_page).limit(per_page).all()
+    order_responses = [
+            {
+                "order_id": order.order_id,
+                "sender_id": order.sender_id,
+                "recipient_id": order.recipient_id,
+                "ordering_date": order.ordering_date,
+                "sending_date": order.sending_date,
+                "receiving_date": order.receiving_date,
+                "sending_cell_id": order.sending_cell_id,
+                "receiving_cell_id": order.receiving_cell_id,
+                "order_status": order.order_status,
+                "date_created": order.date_created,
+                "warnings": order.warnings,
+            }
+            for order in orders
+        ] 
+    total_pages = (total_orders + per_page - 1) // per_page
+    return {
+        "total": total_orders,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": order_responses
+    }
 
 #GET order bằng parcel_id
 @router.get("/{order_id}", response_model=OrderResponse)

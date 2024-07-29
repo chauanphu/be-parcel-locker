@@ -26,6 +26,10 @@ router = APIRouter(
     tags=["locker"],
     dependencies=[Depends(get_current_user)]
 )
+router2 = APIRouter(
+    prefix="/locker2",
+    tags=["locker2"],
+)
 
 class CellRequestCreate(BaseModel):
     size: SizeEnum
@@ -69,13 +73,12 @@ class LockerCreateRequest(BaseModel):
 # async def get_lockers(db: Session = Depends(get_db)):
 #     return db.query(Locker).all()
 
-@router.get("/", response_model=Dict[str, Any])
-async def get_lockers(
+@router2.get("/", response_model=Dict[str, Any])
+async def get_lockers_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
     per_page: int = Query(10, ge=1),  # Number of lockers per page
 ):
-    try:
         # Pagination for lockers
         total_lockers = db.query(Locker).count()
         lockers = db.query(Locker).offset((page - 1) * per_page).limit(per_page).all()
@@ -90,6 +93,8 @@ async def get_lockers(
                 "address": locker.address,
                 "latitude": locker.latitude,
                 "longitude": locker.longitude,
+                "locker_status": locker.locker_status,
+                "date_created": locker.date_created,
 
                 "cells": [
                     {
@@ -108,9 +113,6 @@ async def get_lockers(
             "total_pages": total_pages,
             "data": locker_responses
         }
-    except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/{locker_id}", response_model=LockerResponse)
 async def get_locker(locker_id: int, db: Session = Depends(get_db)):
@@ -121,20 +123,40 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Locker not found")
     return locker
 
-# # Get cell by locker_id and order_id
-# @router.get("/{locker_id}/{order_id}", response_model=CellIDResponse)
-# async def get_cell(locker_id: int, order_id: int, db: Session = Depends(get_db)):
-#     # Get cell by locker_id and order_id
-#     query = db.query(Order).filter(Order.order_id == order_id)
-#     # is_sending = False
-#     # if not query.first():
-#     #     raise HTTPException(status_code=404, detail="Order not found")
-#     # if not query.first().sending_date is None:
-#     #     cell = 
-#     # # If not found, raise 404
-#     # if not cell:
-#     #     raise HTTPException(status_code=404, detail="Cell not found")
-#     return 1
+
+#get cell by paging
+@router.get("/", response_model=Dict[str, Any])
+def get_cells_by_paging(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+        # Total number of cells
+        total_cells = db.query(Cell).count()
+        
+        # Fetch paginated list of cells
+        cells = db.query(Cell).offset((page - 1) * per_page).limit(per_page).all()
+        # Format the response
+        cell_responses = [
+            {
+                "locker_id": cell.locker_id,
+                "cell_id": cell.cell_id,
+                "occupied": cell.occupied,
+                "size": cell.size,
+                "date_created": cell.date_created,
+                
+            }
+            for cell in cells
+        ]  
+        total_pages = (total_cells + per_page - 1) // per_page
+        return {
+            "total": total_cells,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "data": cell_responses
+        }
+    
 
 @router.post("/", response_model=int)
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
@@ -212,19 +234,3 @@ async def update_cell_to_false(locker_id: int, db: Session = Depends(get_db)):
         "Message": "All cell occupied successfully updated to false"
     }
     
-# # Get cell by locker_id and order_id
-# @router.get("/{locker_id}/{order_id}/get all cell", response_model=CellResponse)
-# async def get_cell(locker_id: int, db: Session = Depends(get_db)):
-#     # Get cell by locker_id and order_id
-#     cell = db.query(Cell).filter(Locker.locker_id == locker_id)
-#     if not cell:
-#         raise HTTPException(status_code=404, detail="Locker not found")
-#     return cell
-
-# @router.get("/{locker_id}/{order_id}/get occupied cell", response_model=CellResponse)
-# async def get_cell(locker_id: int, db: Session = Depends(get_db)):
-#     # Get cell by locker_id and order_id
-#     cell = db.query(Cell).filter(Cell.locker_id == locker_id).filter(Cell.occupied == True).first()
-#     if not cell:
-#         raise HTTPException(status_code=404, detail="Locker not found")
-#     return cell
