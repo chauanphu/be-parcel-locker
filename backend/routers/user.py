@@ -12,8 +12,8 @@ from starlette import status
 from enum import Enum
 
 class StatusEnum(str, Enum):
-    Avtive = 'Avtive'
-    Inavtive = 'Inavtive'
+    Active = 'Active'
+    Inactive = 'Inactive'
     Blocked = 'Blocked'
 
 router = APIRouter(
@@ -55,34 +55,33 @@ class UserResponse(BaseModel):
     Date_created: datetime
     role: int
 
-# Check theo user_id nếu quá 3 tháng không gửi/ nhận order -> inactive
-def check_user_status(user_id: int, db: Session = Depends(get_db)):
-    """
-    Checks all accounts and updates the status to 'Inactive' if they have not created or received any order for 3 months.
+# # Check theo user_id nếu quá 3 tháng không gửi/ nhận order -> inactive
+# def check_user_status(user_id: int, db: Session = Depends(get_db)):
+#     """
+#     Checks all accounts and updates the status to 'Inactive' if they have not created or received any order for 3 months.
 
-    Parameters:
-    - db (Session): The database session to use for the query.
+#     Parameters:
+#     - db (Session): The database session to use for the query.
 
-    Returns:
-    - inactive_user: All user_id that is inactive
-    """
-    three_months_ago = datetime.utcnow() - timedelta(days=90)
+#     Returns:
+#     - inactive_user: All user_id that is inactive
+#     """
+#     three_months_ago = datetime.utcnow() - timedelta(days=90)
     
-    # Check if the account has created or received any orders in the past 3 months
-    recent_order_exists = db.query(Order).filter(
-        (Order.sender_id == user_id) | (Order.recipient_id == user_id),
-        (Order.ordering_date >= three_months_ago) | (Order.receiving_date >= three_months_ago)
-    ).first()
+#     # Check if the account has created or received any orders in the past 3 months
+#     recent_order_exists = db.query(Order).filter(
+#         (Order.sender_id == user_id) | (Order.recipient_id == user_id),
+#         (Order.ordering_date >= three_months_ago) | (Order.receiving_date >= three_months_ago)
+#     ).first()
         
-    # If no recent orders found, update the account status to 'Inactive'
-    if not recent_order_exists:
-        query = db.query(User).filter(User.user_id == user_id).update({"status": "Inactive"})
-        db.commit()
-        # return query
+#     # If no recent orders found, update the account status to 'Inactive'
+#     if not recent_order_exists:
+#         query = db.query(User).filter(User.user_id == user_id).update({"status": "Inactive"})
+#         db.commit()
+#         # return query
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
-    check_user_status(user_id, db)
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -91,7 +90,6 @@ def get_user(user_id: int, db: Session = Depends(get_db), ):
 # A PUT REQUEST TO UPDATE USER
 @router.put("/{user_id}", response_model=UserResponse)
 def update_user(user_id: int, _user: UserRequest, db: Session = Depends(get_db)):
-    check_user_status(user_id, db)
     # Allow for partial updates
     user = db.query(User).filter(User.user_id == user_id).update(
         _user.model_dump(

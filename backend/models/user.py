@@ -22,6 +22,6 @@ class User(Base):
     Date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
     role = Column(Integer, nullable=False,default=2)
 
-    #sau khi thêm 1 cột role này vô user thì thêm bằng alembic típ 
+    #sau khi thêm 1 cột role này vô user thì thêm bằng alembic típ
     
 print("User model created successfully.")
