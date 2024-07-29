@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import func
 from database.session import get_db
 from models.locker import Locker, Cell
 from sqlalchemy.orm import Session
-from typing import List
+from typing import Any, Dict, List
 from pydantic import BaseModel
 from auth.utils import get_current_user
 from uuid import UUID
@@ -61,9 +62,24 @@ class LockerCreateRequest(BaseModel):
     longitude: float
     status: StatusEnum
 
-@router.get("/", response_model=List[LockerResponse])
-async def get_lockers(db: Session = Depends(get_db)):
-    return db.query(Locker).all()
+# @router.get("/", response_model=List[LockerResponse])
+# async def get_lockers(db: Session = Depends(get_db)):
+#     return db.query(Locker).all()
+
+@router.get("/", response_model=Dict[str, Any])
+async def get_lockers(
+    db: Session = Depends(get_db),
+    limit: int = Query(default=3, ge=1),  # Default limit is 10, minimum value is 1
+    offset: int = Query(default=0, ge=0)   # Default offset is 0, minimum value is 0
+):
+    total = db.query(func.count(Locker.id)).scalar()
+    lockers = db.query(Locker).offset(offset).limit(limit).all()
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "data": lockers
+    }
 
 @router.get("/{locker_id}", response_model=LockerResponse)
 async def get_locker(locker_id: int, db: Session = Depends(get_db)):
