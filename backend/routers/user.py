@@ -14,6 +14,7 @@ from enum import Enum
 class StatusEnum(str, Enum):
     Avtive = 'Avtive'
     Inavtive = 'Inavtive'
+    Blocked = 'Blocked'
 
 router = APIRouter(
     prefix="/user",
