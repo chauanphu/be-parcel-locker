@@ -18,9 +18,9 @@ class User(Base):
     address = Column(String, nullable=False)
     phone = Column(String, nullable=False)
     password = Column(String)
-    status = Column(Enum('Active', 'Inactive', 'Blocked', name='status'), nullable=False,default='Active')
+    status = Column(Enum('Active','Inactive', 'Blocked', name='status'), nullable=False,default='Active')
     Date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
-    role = Column(Integer, nullable=False,default=1)
+    role = Column(Integer, nullable=False,default=2)
 
     #sau khi thêm 1 cột role này vô user thì thêm bằng alembic típ 
     

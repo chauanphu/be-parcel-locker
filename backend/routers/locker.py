@@ -17,7 +17,7 @@ class SizeEnum(str, Enum):
     M = 'M'
     L = 'L'
     
-class StatusEnum(str, Enum):
+class LockerStatusEnum(str, Enum):
     Active = 'Active'
     Inactive = 'Inactive'   
 
@@ -60,7 +60,7 @@ class LockerCreateRequest(BaseModel):
     address: str
     latitude: float
     longitude: float
-    status: StatusEnum
+    status: LockerStatusEnum
 
 # @router.get("/", response_model=List[LockerResponse])
 # async def get_lockers(db: Session = Depends(get_db)):
@@ -118,20 +118,20 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Locker not found")
     return locker
 
-# Get cell by locker_id and order_id
-@router.get("/{locker_id}/{order_id}", response_model=CellIDResponse)
-async def get_cell(locker_id: int, order_id: int, db: Session = Depends(get_db)):
-    # Get cell by locker_id and order_id
-    query = db.query(Order).filter(Order.order_id == order_id)
-    # is_sending = False
-    # if not query.first():
-    #     raise HTTPException(status_code=404, detail="Order not found")
-    # if not query.first().sending_date is None:
-    #     cell = 
-    # # If not found, raise 404
-    # if not cell:
-    #     raise HTTPException(status_code=404, detail="Cell not found")
-    return 1
+# # Get cell by locker_id and order_id
+# @router.get("/{locker_id}/{order_id}", response_model=CellIDResponse)
+# async def get_cell(locker_id: int, order_id: int, db: Session = Depends(get_db)):
+#     # Get cell by locker_id and order_id
+#     query = db.query(Order).filter(Order.order_id == order_id)
+#     # is_sending = False
+#     # if not query.first():
+#     #     raise HTTPException(status_code=404, detail="Order not found")
+#     # if not query.first().sending_date is None:
+#     #     cell = 
+#     # # If not found, raise 404
+#     # if not cell:
+#     #     raise HTTPException(status_code=404, detail="Cell not found")
+#     return 1
 
 @router.post("/", response_model=int)
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
@@ -208,3 +208,20 @@ async def update_cell_to_false(locker_id: int, db: Session = Depends(get_db)):
     return {
         "Message": "All cell occupied successfully updated to false"
     }
+    
+# # Get cell by locker_id and order_id
+# @router.get("/{locker_id}/{order_id}/get all cell", response_model=CellResponse)
+# async def get_cell(locker_id: int, db: Session = Depends(get_db)):
+#     # Get cell by locker_id and order_id
+#     cell = db.query(Cell).filter(Locker.locker_id == locker_id)
+#     if not cell:
+#         raise HTTPException(status_code=404, detail="Locker not found")
+#     return cell
+
+# @router.get("/{locker_id}/{order_id}/get occupied cell", response_model=CellResponse)
+# async def get_cell(locker_id: int, db: Session = Depends(get_db)):
+#     # Get cell by locker_id and order_id
+#     cell = db.query(Cell).filter(Cell.locker_id == locker_id).filter(Cell.occupied == True).first()
+#     if not cell:
+#         raise HTTPException(status_code=404, detail="Locker not found")
+#     return cell

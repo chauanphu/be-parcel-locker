@@ -6,7 +6,6 @@ Create Date: 2024-03-26 09:16:35.298440
 
 """
 from typing import Sequence, Union
-
 from alembic import op
 import sqlalchemy as sa
 
@@ -56,7 +55,7 @@ def upgrade() -> None:
     op.create_table('cell',
     sa.Column('locker_id', sa.Integer(), nullable=False),
     sa.Column('cell_id', sa.UUID(), nullable=False),
-    sa.Column('size', sa.Enum('S', 'M', 'L', name='size'), nullable=False),
+    sa.Column('size', sa.Enum('S', 'M', 'L', name='size') , nullable=False),
     sa.Column('occupied', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['locker_id'], ['locker.locker_id'], ),
     sa.PrimaryKeyConstraint('cell_id')
@@ -93,7 +92,6 @@ def upgrade() -> None:
     #Role table
     op.create_table('role',
     sa.Column('role_id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('role_id'),     
     )
     op.create_index(op.f('ix_role_role_id'), 'role', ['role_id'], unique=False)
@@ -106,6 +104,10 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_order_order_id'), table_name='order')
     op.drop_table('order')
     op.drop_table('cell')
+    
+    # Drop all types named 'size'
+    op.execute("DROP TYPE IF EXISTS size CASCADE")
+            
     op.drop_index(op.f('ix_user_user_id'), table_name='user')
     op.drop_table('user')
     op.drop_index(op.f('ix_parcel_type_parcel_type_id'), table_name='parcel_type')

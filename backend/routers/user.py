@@ -14,6 +14,7 @@ from enum import Enum
 class StatusEnum(str, Enum):
     Avtive = 'Avtive'
     Inavtive = 'Inavtive'
+    Blocked = 'Blocked'
 
 router = APIRouter(
     prefix="/user",
@@ -24,6 +25,11 @@ router2 = APIRouter(
     prefix="/user2",
     tags=["user2"]
 )
+class Address(BaseModel):
+    address_number: str
+    street: str
+    ward: str
+    district: str
 
 class UserRequest(BaseModel):
     name: Optional[str] = None
@@ -35,7 +41,7 @@ class CreateUserRequest(BaseModel):
     email: str
     username: str
     name: str
-    address: str
+    address: Address
     phone: str
     password: str
 
@@ -107,7 +113,16 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Email already exists')
     create_user_request.password = bcrypt_context.hash(create_user_request.password)
-    db_user = User(**create_user_request.model_dump())
+    
+    
+    user_data = create_user_request.dict()
+    
+    
+    address = create_user_request.address
+    address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
+    user_data['address'] = address_string
+    db_user = User(**user_data)
+    
     print(db_user)
     db.add(db_user)
     db.commit()
