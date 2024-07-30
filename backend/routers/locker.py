@@ -69,6 +69,12 @@ class LockerCreateRequest(BaseModel):
     longitude: float
     locker_status: LockerStatusEnum
 
+class DensityResponse(BaseModel):
+    locker_id: int
+    total_cells: int
+    occupied_cells: int
+    density: float
+
 # @router.get("/", response_model=List[LockerResponse])
 # async def get_lockers(db: Session = Depends(get_db)):
 #     return db.query(Locker).all()
@@ -233,4 +239,27 @@ async def update_cell_to_false(locker_id: int, db: Session = Depends(get_db)):
     return {
         "Message": "All cell occupied successfully updated to false"
     }
+
+# Get density of occupied cells by locker_id
+@router.get("/{locker_id}/density", response_model=DensityResponse)
+def get_density(locker_id: int, db: Session = Depends(get_db)):
     
+    # Get all cells in the locker
+    all_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id).count()
+    
+    # Get occupied cells in the locker
+    occupied_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.occupied == True).count()
+    
+    # If no cells are found, raise 404
+    if all_cells_count == 0:
+        raise HTTPException(status_code=404, detail="Locker not found or no cells in the locker")
+    
+    # Calculate the density of occupied cells
+    density = occupied_cells_count / all_cells_count
+    
+    return DensityResponse(
+        locker_id = locker_id,
+        total_cells = all_cells_count,
+        occupied_cells = occupied_cells_count,
+        density = density
+    )
