@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
 from sqlalchemy import DateTime
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends,Query
 from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
 from models.user import User
 from models.order import Order
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from auth.utils import get_current_user, authenticate_user, bcrypt_context
 from starlette import status
 from enum import Enum
@@ -21,10 +21,7 @@ router = APIRouter(
     tags=["user"],
     dependencies=[Depends(get_current_user)]
 )
-router2 = APIRouter(
-    prefix="/user2",
-    tags=["user2"]
-)
+
 class Address(BaseModel):
     address_number: str
     street: str
@@ -85,6 +82,8 @@ class RegisterUserRequest(BaseModel):
 #         db.commit()
 #         # return query
 
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -92,6 +91,43 @@ def get_user(user_id: int, db: Session = Depends(get_db), ):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+@router.get("/", response_model=Dict[str, Any])
+def get_paging_users(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+
+        # Total number of users
+        total_users = db.query(User).count()
+
+        # Fetch paginated list of users
+        users = db.query(User).offset((page - 1) * per_page).limit(per_page).all()
+
+        # Format the response
+        user_responses = [
+            {
+                "user_id": user.user_id,
+                "name": user.name,
+                "email": user.email,
+                "phone": user.phone,
+                "address": user.address,
+                "status": user.status,
+                "Date_created": user.Date_created,
+                "role": user.role,
+            }
+            for user in users
+        ]
+
+        total_pages = (total_users + per_page - 1) // per_page
+        return {
+            "total": total_users,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "data": user_responses
+        }
+    
 # A PUT REQUEST TO UPDATE USER
 @router.put("/{user_id}", response_model=UserResponse)
 def update_user(user_id: int, _user: UserRequest, db: Session = Depends(get_db)):

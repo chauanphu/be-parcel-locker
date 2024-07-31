@@ -1,5 +1,5 @@
 from datetime import date
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from auth.utils import get_current_user
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from database.session import get_db
 from models.parcel import Parcel
 from models.parcel_type import ParcelType
+from typing import Any, Dict
 
 router = APIRouter(
     prefix="/parcel",
@@ -33,22 +34,40 @@ def create_parcel(parcel: ParcelRequest, db: Session = Depends(get_db)):
     db.refresh(new_parcel)
     return new_parcel
 
-# @router.post("/", response_model=ParcelRequest)
-# def create_parcel(parcel: ParcelRequest, db: Session = Depends(get_db)):
-#     new_parcel = Parcel(**parcel.model_dump())
-#     db.add(new_parcel)
-#     db.commit()
-#     db.refresh(new_parcel)
-#     return new_parcel
-
-# @router.post("/", response_model=ParcelRequest)
-# def create_parcel(parcel: ParcelRequest, db: Session = Depends(get_db)):
-#     new_parcel = Parcel(**parcel.model_dump())
-#     db.add(new_parcel)
-#     db.commit()
-#     db.refresh(new_parcel)
-#     return new_parcel
-
+#get parcels by paging
+@router.get("/", response_model=Dict[str, Any])
+def get_parcels_by_paging(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+        # Total number of parcels
+        total_parcels = db.query(Parcel).count()
+        # Fetch paginated list of parcels
+        parcels = db.query(Parcel).offset((page - 1) * per_page).limit(per_page).all()
+        # Format the response
+        parcel_responses = [
+            {
+                "parcel_id": parcel.parcel_id,
+                "width": parcel.width,
+                "length": parcel.length,
+                "height": parcel.height,
+                "weight": parcel.weight,
+                "parcel_size": parcel.parcel_size,
+                "date_created": parcel.date_created,
+            } 
+            for parcel in parcels
+        ]
+        
+        total_pages = (total_parcels + per_page - 1) // per_page
+        return {
+            "total": total_parcels,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "data": parcel_responses
+        }
+    
 #get a parcel by parcel_id
 @router.get("/{parcel_id}", response_model=ParcelRequest)
 def get_parcel(parcel_id: str, db: Session = Depends(get_db)):
