@@ -24,7 +24,8 @@ class Locker(Base):
     longitude = Column(Float, nullable=False)
     locker_status = Column(Enum('Active', 'Inactive', name='locker_status'), nullable=False,default='Active')
     date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
-    
+
+
     cells = relationship('Cell', backref='locker', lazy=True)
 
 print ("Locker model created successfully.")

@@ -21,6 +21,11 @@ router = APIRouter(
     tags=["user"],
     dependencies=[Depends(get_current_user)]
 )
+router2 = APIRouter(
+    prefix="/user",
+    tags=["user"],
+    dependencies=[Depends(get_current_user)]
+)
 
 class Address(BaseModel):
     address_number: str
