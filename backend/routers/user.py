@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy import DateTime
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
 from models.user import User
 from models.order import Order
@@ -54,6 +54,11 @@ class UserResponse(BaseModel):
     status: StatusEnum
     Date_created: datetime
     role: int
+class RegisterUserRequest(BaseModel):
+    username: str
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    confirm_password: str
 
 # # Check theo user_id nếu quá 3 tháng không gửi/ nhận order -> inactive
 # def check_user_status(user_id: int, db: Session = Depends(get_db)):
@@ -127,15 +132,37 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
     db.commit()
     return {"messsage": "User created successfully"}
 
-@router2.post('/', status_code=status.HTTP_201_CREATED)
-async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
-    user = authenticate_user(create_user_request.email, create_user_request.password, db)
+# @router2.post('/', status_code=status.HTTP_201_CREATED)
+# async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
+#     user = authenticate_user(create_user_request.email, create_user_request.password, db)
+#     if user:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+#                             detail='Email already exists')
+#     create_user_request.password = bcrypt_context.hash(create_user_request.password)
+#     db_user = User(**create_user_request.model_dump())
+#     print(db_user)
+#     db.add(db_user)
+#     db.commit()
+#     return {"messsage": "User created successfully"}
+
+# register user
+@router.post('/Register', status_code=status.HTTP_201_CREATED)
+async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
+    if register_user_request.password != register_user_request.confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Confirm password not like password')
+    user = authenticate_user(register_user_request.email, register_user_request.password, db)
     if user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Email already exists')
-    create_user_request.password = bcrypt_context.hash(create_user_request.password)
-    db_user = User(**create_user_request.model_dump())
-    print(db_user)
+    hashed_password = bcrypt_context.hash(register_user_request.password)
+    user_data = {
+        "username": register_user_request.username,
+        "email": register_user_request.email,
+        "password": hashed_password,
+    }
+    db_user = User(**user_data)
+    
     db.add(db_user)
     db.commit()
-    return {"messsage": "User created successfully"}
+    return {"message": "User registered successfully"}
