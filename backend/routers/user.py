@@ -245,7 +245,7 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
     message = MessageSchema(
         subject="Email Confirmation",
         recipients=[register_user_request.email],
-        body=f"Please click the link to confirm your email: {confirmation_link}",
+        body = f"Please click the link to confirm your email: {confirmation_link}",
         subtype="html"
     )
     
