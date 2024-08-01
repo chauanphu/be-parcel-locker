@@ -231,6 +231,9 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
     if user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Email already exists')
+    if register_user_request.username == User.username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='User already exists')
         
         
     token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
