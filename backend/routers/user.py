@@ -10,6 +10,18 @@ from typing import Any, Dict, List, Optional
 from auth.utils import get_current_user, authenticate_user, bcrypt_context
 from starlette import status
 from enum import Enum
+from jose import JWTError, jwt
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from decouple import config
+
+
+SECRET_KEY= config("SECRET_KEY")
+ALGORITHM = config("algorithm", default="HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+MAIL_USERNAME = config("MAIL_USERNAME")
+MAIL_PASSWORD = config("MAIL_PASSWORD")
+MAIL_FROM = config("MAIL_FROM")
+
 
 class StatusEnum(str, Enum):
     Active = 'Active'
@@ -25,6 +37,18 @@ router2 = APIRouter(
     prefix="/user",
     tags=["user"],
     dependencies=[Depends(get_current_user)]
+)
+
+conf = ConnectionConfig(
+    MAIL_USERNAME=MAIL_USERNAME,
+    MAIL_PASSWORD=MAIL_PASSWORD,
+    MAIL_FROM=MAIL_FROM,
+    MAIL_PORT=587,
+    MAIL_SERVER="smtp.gmail.com",
+    MAIL_STARTTLS = True,
+    MAIL_SSL_TLS = False,
+    USE_CREDENTIALS = True,
+    VALIDATE_CERTS = True
 )
 
 class Address(BaseModel):
@@ -87,7 +111,15 @@ class RegisterUserRequest(BaseModel):
 #         db.commit()
 #         # return query
 
-
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
@@ -187,6 +219,9 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
 #     return {"messsage": "User created successfully"}
 
 # register user
+pending_users = {} # For pending users
+
+
 @router.post('/Register', status_code=status.HTTP_201_CREATED)
 async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
     if register_user_request.password != register_user_request.confirm_password:
@@ -196,14 +231,48 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
     if user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Email already exists')
-    hashed_password = bcrypt_context.hash(register_user_request.password)
-    user_data = {
-        "username": register_user_request.username,
-        "email": register_user_request.email,
-        "password": hashed_password,
-    }
-    db_user = User(**user_data)
+        
+        
+    token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": register_user_request.email}, expires_delta=token_expires
+    )
     
-    db.add(db_user)
+    confirmation_link = f"http://localhost:8000/confirm?token={access_token}"
+    message = MessageSchema(
+        subject="Email Confirmation",
+        recipients=[register_user_request.email],
+        body=f"Please click the link to confirm your email: {confirmation_link}",
+        subtype="html"
+    )
+    
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    
+    pending_users[register_user_request.email] = {
+        "username": register_user_request.username,
+        "password": bcrypt_context.hash(register_user_request.password)
+    }
+    
+    return {"message": "Please check your email to confirm your registration"}
+
+@router.post("/confirm",status_code=status.HTTP_201_CREATED)
+async def confirm_email(token: str, db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+    
+    user_data = pending_users.pop(email, None)
+    if user_data is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+    new_user = User(email=email, username=user_data["username"], password=user_data["password"])
+    
+    db.add(new_user)
     db.commit()
-    return {"message": "User registered successfully"}
+    db.refresh(new_user)
+    
+    return {"message": "Email confirmed and user registered successfully"}
