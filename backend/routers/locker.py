@@ -61,7 +61,6 @@ class LockerInfoResponse(BaseModel):
     address: str
     latitude: float
     longitude: float
-    locker_status: LockerStatusEnum
 
 class LockerCreateRequest(BaseModel):
     address: str
@@ -74,6 +73,7 @@ class DensityResponse(BaseModel):
     total_cells: int
     occupied_cells: int
     density: float
+    density_status: str
 
 # @router.get("/", response_model=List[LockerResponse])
 # async def get_lockers(db: Session = Depends(get_db)):
@@ -178,7 +178,7 @@ async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session 
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     
     # Check if locker is inactive
-    if locker is None or locker.status == "inactive":
+    if locker is None or locker.locker_status == "Inactive":
         raise HTTPException(status_code=400, detail="This locker is inactive")
     # Add new cell
     cell = Cell(locker_id=locker_id, size=cell_info.size)
@@ -255,11 +255,19 @@ def get_density(locker_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Locker not found or no cells in the locker")
     
     # Calculate the density of occupied cells
-    density = occupied_cells_count / all_cells_count
+    density = round((occupied_cells_count / all_cells_count), 2) * 100
     
+    if density == 100:
+        density_status = "Full"
+    elif density >= 70:
+        density_status = "Busy"
+    else:
+        density_status = "Free"
+        
     return DensityResponse(
         locker_id = locker_id,
         total_cells = all_cells_count,
         occupied_cells = occupied_cells_count,
-        density = density
+        density = density,
+        density_status = density_status
     )
