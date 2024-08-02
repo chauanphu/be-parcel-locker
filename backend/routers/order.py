@@ -141,16 +141,15 @@ def to_dict(model_instance):
     data.pop('_sa_instance_state', None)
     return data
 
-def determine_parcel_size(width: int, length: int, height: int, weight: int) -> str:
-    # Define thresholds for parcel sizes based on individual dimensions and weight
-    if width <= 10 and length <= 10 and height <= 10 and weight <= 100:
+def determine_parcel_size(weight: int) -> str:
+    if weight <= 20:
         return "S"
-    elif width <= 20 and length <= 20 and height <= 20 and weight <= 100:
+    elif weight <= 50:
         return "M"
-    elif width <= 30 and length <= 30 and height <= 30 and weight <= 100:
+    elif weight <= 100:
         return "L"
     else:
-        raise HTTPException(status_code=400, detail="Over size or weight limit (quá cỡ hoặc quá trọng lượng)")
+        raise HTTPException(status_code=400, detail="out of weight")
 
 #tạo order
 @router.post("/", response_model=Token2)
@@ -177,7 +176,7 @@ def create_order(order: OrderRequest, db: Session = Depends(get_db)):
     db.refresh(new_order_instance)
 
     parcel['parcel_id'] = new_order_instance.order_id
-    parcel_size = determine_parcel_size(parcel['width'], parcel['length'], parcel['height'], parcel['weight'])
+    parcel_size = determine_parcel_size(parcel['weight'])
     parcel['parcel_size'] = parcel_size
     new_parcel = Parcel(**parcel)
     db.add(new_parcel)
