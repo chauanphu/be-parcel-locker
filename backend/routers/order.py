@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import logging
 from typing import Any, Dict
 import uuid
 from fastapi import APIRouter, Depends, Query
@@ -6,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from auth.utils import get_current_user
 from sqlalchemy.orm import Session, joinedload, aliased
+from models.user import User
 from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
@@ -152,41 +154,69 @@ def determine_parcel_size(weight: int) -> str:
         raise HTTPException(status_code=400, detail="out of weight")
 
 #tạo order
-@router.post("/", response_model=Token2)
-def create_order(order: OrderRequest, db: Session = Depends(get_db)):
-    new_order = order.dict(exclude_none=True, exclude_unset=True)
-    parcel = new_order.pop('parcel')
-    sending_locker_id = new_order.pop('sending_locker_id')
-    receiving_locker_id = new_order.pop('receiving_locker_id')
+@router.post("/", response_model=Token2) 
+def create_order(order: OrderRequest, 
+                 db: Session = Depends(get_db),
+                 current_user: User = Depends(get_current_user)):
+    try:
+        # Set sender_id to the logged-in user's ID
+        order.sender_id = current_user.user_id
+        # Convert order to dict and remove the parcel
+        new_order_data = order.dict(exclude_none=True, exclude_unset=True)
+        parcel_data = new_order_data.pop('parcel')
+        sending_locker_id = new_order_data.pop('sending_locker_id')
+        receiving_locker_id = new_order_data.pop('receiving_locker_id')
 
-    sending_cell = find_available_cell(sending_locker_id, db)
-    receiving_cell = find_available_cell(receiving_locker_id, db)
+        # Determine parcel size based on dimensions and weight
+        parcel_size = determine_parcel_size(parcel_data['weight'])
 
-    if not sending_cell or not receiving_cell:
-        raise HTTPException(status_code=400, detail="No available cells in the locker")
+        # Query the available cell in the sending locker
+        sending_cell = find_available_cell(sending_locker_id, parcel_size, db)
+        if not sending_cell:
+            raise HTTPException(status_code=400, detail="No available cells in the sending locker")
+        
+        logging.debug(f"Found sending cell: {sending_cell.cell_id}")
+        change_cell_occupied(sending_cell.cell_id, True, db)
 
-    change_cell_occupied(sending_cell.cell_id, True, db)
-    change_cell_occupied(receiving_cell.cell_id, True, db)
+        # Query the available cell in the receiving locker
+        receiving_cell = find_available_cell(receiving_locker_id, parcel_size, db)
+        if not receiving_cell:
+            # Free up the sending cell if the receiving cell is not available
+            change_cell_occupied(sending_cell.cell_id, False, db)
+            raise HTTPException(status_code=400, detail="No available cells in the receiving locker")
+        
+        logging.debug(f"Found receiving cell: {receiving_cell.cell_id}")
+        change_cell_occupied(receiving_cell.cell_id, True, db)
 
-    new_order['sending_cell_id'] = sending_cell.cell_id
-    new_order['receiving_cell_id'] = receiving_cell.cell_id
-    new_order_instance = Order(**new_order)
-    db.add(new_order_instance)
-    db.commit()
-    db.refresh(new_order_instance)
+        # Update the order with the cell IDs
+        new_order_data['sending_cell_id'] = sending_cell.cell_id
+        new_order_data['receiving_cell_id'] = receiving_cell.cell_id
+        new_order = Order(**new_order_data)
+        db.add(new_order)
+        db.commit()
+        db.refresh(new_order)
 
-    parcel['parcel_id'] = new_order_instance.order_id
-    parcel_size = determine_parcel_size(parcel['weight'])
-    parcel['parcel_size'] = parcel_size
-    new_parcel = Parcel(**parcel)
-    db.add(new_parcel)
-    db.commit()
+        # Create the parcel record
+        parcel_data['parcel_size'] = parcel_size
+        parcel_data['parcel_id'] = new_order.order_id
+        new_parcel = Parcel(**parcel_data)
+        db.add(new_parcel)
+        db.commit()
 
-    return {
-        "order_id": new_order_instance.order_id,
-        "message": 'Successfully created',
-        "parcel_size": parcel_size
-    }
+        # Return the newly created order with the parcel size for OrderResponse
+        return {
+            "order_id": new_order.order_id,
+            "message": 'Successfully created',
+            "parcel_size": parcel_size,
+            "sender_id": current_user.user_id  
+
+        }
+    except HTTPException as e:
+        db.rollback()
+        raise e
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 #get order by paging
 @router.get("/",response_model=Dict[str, Any])
