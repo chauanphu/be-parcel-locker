@@ -13,11 +13,11 @@ from enum import Enum
 from jose import JWTError, jwt
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from decouple import config
-
+import random
 
 SECRET_KEY= config("SECRET_KEY")
 ALGORITHM = config("algorithm", default="HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 10
 MAIL_USERNAME = config("MAIL_USERNAME")
 MAIL_PASSWORD = config("MAIL_PASSWORD")
 MAIL_FROM = config("MAIL_FROM")
@@ -121,6 +121,25 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
+def create_access_code(data: dict, expires_delta: timedelta = None):
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    
+    access_code = random.randint(100000, 999999)
+    
+    # Store the access code and expiration time
+    pending_users[data["email"]] = {
+        "username": data["username"],
+        "password": data["password"],
+        "access_code": access_code,
+        "expires_at": expire
+    }
+    
+    return access_code
+
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -222,7 +241,7 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
 pending_users = {} # For pending users
 
 
-@router.post('/Register', status_code=status.HTTP_201_CREATED)
+@router.post('/Register_by_token', status_code=status.HTTP_201_CREATED)
 async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
     if register_user_request.password != register_user_request.confirm_password:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -259,6 +278,7 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
     
     return {"message": "Please check your email to confirm your registration"}
 
+
 @router.post("/confirm",status_code=status.HTTP_201_CREATED)
 async def confirm_email(token: str, db: Session = Depends(get_db)):
     try:
@@ -277,5 +297,64 @@ async def confirm_email(token: str, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    return {"message": "Email confirmed and user registered successfully"}
+
+
+@router.post('/Register_by_code', status_code=status.HTTP_201_CREATED)
+async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
+    if register_user_request.password != register_user_request.confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Confirm password not like password')
+    
+    user = authenticate_user(register_user_request.email, register_user_request.password, db)
+    if user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Email already exists')
+    
+    if register_user_request.username == User.username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='User already exists')
+        
+    token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_code = create_access_code(
+        data={"email": register_user_request.email, "username": register_user_request.username, "password": bcrypt_context.hash(register_user_request.password)}, 
+        expires_delta=token_expires
+    )
+    
+    message = MessageSchema(
+        subject="Email Confirmation",
+        recipients=[register_user_request.email],
+        body=f"Your confirmation code is: {access_code}",
+        subtype="html"
+    )
+    
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    
+    return {"message": "Please check your email for the confirmation code"}
+
+
+
+
+@router.post("/confirm_code", status_code=status.HTTP_201_CREATED)
+async def confirm_email(code: int, email: str, db: Session = Depends(get_db)):
+    user_data = pending_users.get(email)
+    if user_data is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code")
+    
+    if user_data["access_code"] != code:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid code")
+    
+    if datetime.utcnow() > user_data["expires_at"]:
+        pending_users.pop(email)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expired code")
+    
+    new_user = User(email=email, username=user_data["username"], password=user_data["password"])
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    pending_users.pop(email)
     
     return {"message": "Email confirmed and user registered successfully"}
