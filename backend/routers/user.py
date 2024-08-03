@@ -260,11 +260,11 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
         data={"sub": register_user_request.email}, expires_delta=token_expires
     )
     
-    confirmation_link = f"http://localhost:8000/confirm?token={access_token}"
+    confirmation_link = f"http://localhost:8000/confirm?token={access_token} "
     message = MessageSchema(
         subject="Email Confirmation",
         recipients=[register_user_request.email],
-        body = f"Please click the link to confirm your email: {confirmation_link}",
+        body = f"Please click the link to confirm your email:{confirmation_link}",
         subtype="html"
     )
     
