@@ -39,6 +39,12 @@ router2 = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+
+public_router = APIRouter(
+    prefix="/user",
+    tags=["user"]
+)
+
 conf = ConnectionConfig(
     MAIL_USERNAME=MAIL_USERNAME,
     MAIL_PASSWORD=MAIL_PASSWORD,
@@ -241,7 +247,7 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
 pending_users = {} # For pending users
 
 
-@router.post('/Register_by_token', status_code=status.HTTP_201_CREATED)
+@public_router.post('/Register_by_token', status_code=status.HTTP_201_CREATED)
 async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
     if register_user_request.password != register_user_request.confirm_password:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -279,7 +285,7 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
     return {"message": "Please check your email to confirm your registration"}
 
 
-@router.post("/confirm",status_code=status.HTTP_201_CREATED)
+@public_router.post("/confirm",status_code=status.HTTP_201_CREATED)
 async def confirm_email(token: str, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
@@ -301,7 +307,7 @@ async def confirm_email(token: str, db: Session = Depends(get_db)):
     return {"message": "Email confirmed and user registered successfully"}
 
 
-@router.post('/Register_by_code', status_code=status.HTTP_201_CREATED)
+@public_router.post('/Register_by_code', status_code=status.HTTP_201_CREATED)
 async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
     if register_user_request.password != register_user_request.confirm_password:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -337,7 +343,7 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
 
 
 
-@router.post("/confirm_code", status_code=status.HTTP_201_CREATED)
+@public_router.post("/confirm_code", status_code=status.HTTP_201_CREATED)
 async def confirm_email(code: int, email: str, db: Session = Depends(get_db)):
     user_data = pending_users.get(email)
     if user_data is None:
