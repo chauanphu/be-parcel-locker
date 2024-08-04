@@ -46,9 +46,6 @@ class OrderRequest(BaseModel):
     recipient_id: int
     sending_locker_id: int
     receiving_locker_id: int
-    ordering_date:date
-    sending_date: date
-    receiving_date: date
     
 
 class OrderResponse(BaseModel):
@@ -77,7 +74,7 @@ def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int, db: Session = Depends(get_db)):
+def find_available_cell(locker_id: int,size: str,  db: Session = Depends(get_db)):
     """
     Finds an available cell in the specified locker.
 
@@ -88,7 +85,7 @@ def find_available_cell(locker_id: int, db: Session = Depends(get_db)):
     Returns:
     - Cell: The first available cell found in the locker, or None if no available cells are found.
     """
-    query = db.query(Cell).filter(Cell.locker_id == locker_id).filter(Cell.occupied == False)
+    query = db.query(Cell).filter(Cell.locker_id == locker_id).filter(Cell.size == size).filter(Cell.occupied == False)
     return query.first()
 
 def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(get_db)):
@@ -317,3 +314,41 @@ def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
     if not package:
         raise HTTPException(status_code=404, detail="Order not found")
     return package
+
+
+
+
+#Update receving_date and sending_date
+@router.put("/receving_date")
+def update_package(order_id : int , recive_date: date, db: Session = Depends(get_db)):
+
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    # Check if order exists
+    # If not, raise an error
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.receiving_date = recive_date
+    db.commit()
+    db.refresh(order)  # Refresh to get the updated order details
+    return {
+        "Message": "Receiving date updated",
+        "order_id": order_id,
+        "receiving_date": order.receiving_date
+    }
+    
+@router.put("/sending_date")
+def update_package(order_id : int , send_date: date, db: Session = Depends(get_db)):
+
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    # Check if order exists
+    # If not, raise an error
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.sending_date = send_date
+    db.commit()
+    db.refresh(order)  # Refresh to get the updated order details
+    return {
+        "Message": "Sending date updated",
+        "order_id": order_id,
+        "sending_date": order.sending_date
+    }

@@ -110,10 +110,13 @@ def downgrade() -> None:
             
     op.drop_index(op.f('ix_user_user_id'), table_name='user')
     op.drop_table('user')
+    
     op.drop_index(op.f('ix_parcel_type_parcel_type_id'), table_name='parcel_type')
     op.drop_table('parcel_type')
+    
     op.drop_index(op.f('ix_locker_locker_id'), table_name='locker')
     op.drop_table('locker')
+    
     op.drop_index(op.f('ix_role_role_id'), table_name='role')
     op.drop_table('role')
     # ### end Alembic commands ###
