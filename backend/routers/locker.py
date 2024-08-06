@@ -255,13 +255,16 @@ async def update_cell_to_false(order_id: int, db: Session = Depends(get_db)):
     # If the sending cell is not found, raise 404
     if not db_cell:
         raise HTTPException(status_code=404, detail="Sending cell not found")
-    
+    if db_cell.occupied == False:
+        return {
+             "Message": "the sending cell is already occupied false"
+        }
     db_cell.occupied = False
     db.commit()
     
     # Return 200 OK
     return {
-        "Message": "Cell occupied successfully updated to false"
+        "Message": f"Sending cell occupied of order_id: {order_id} successfully updated to false"
     }
     
 @router.put("/{order_id}/update receiving cell occupied to False")
@@ -279,13 +282,16 @@ async def update_cell_to_false(order_id: int, db: Session = Depends(get_db)):
     # If the receiving cell is not found, raise 404
     if not db_cell:
         raise HTTPException(status_code=404, detail="Receiving cell not found")
-    
+    if db_cell.occupied == False:
+        return {
+             "Message": "the receiving cell is already occupied false"
+        }
     db_cell.occupied = False
     db.commit()
     
     # Return 200 OK
     return {
-        "Message": "Cell occupied successfully updated to false"
+        "Message":  f"Receiving cell occupied of order_id: {order_id} successfully updated to false"
     }
 
 # Get density of occupied cells by locker_id
@@ -319,3 +325,9 @@ def get_density(locker_id: int, db: Session = Depends(get_db)):
         density = density,
         density_status = density_status
     )
+    
+    
+# @router2.get("/test")
+# def test_server():
+#     return "Server is running, test successful"
+    
