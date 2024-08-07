@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
@@ -27,3 +27,17 @@ def receive_location_data(data: GPSData):
 @router.get("/", response_model=List[GPSData])
 def get_location_data():
     return location_data_list
+
+
+# WebSocket endpoint
+@router.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            gps_data = GPSData(**data)
+            location_data_list.append(gps_data)
+            await websocket.send_json({"status": "received", "data": data})
+    except WebSocketDisconnect:
+        print(f"Client {user_id} disconnected")

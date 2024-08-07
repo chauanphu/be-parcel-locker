@@ -239,7 +239,6 @@ async def get_paging_order(
                 "sending_cell_id": order.sending_cell_id,
                 "receiving_cell_id": order.receiving_cell_id,
                 "order_status": order.order_status,
-                "date_created": order.date_created,
                 "warnings": order.warnings,
             }
             for order in orders
