@@ -29,19 +29,19 @@ class GenderStatusEnum(str, Enum):
     NoResponse = 'Prefer not to respond'
 
 router = APIRouter(
-    prefix="/user",
-    tags=["user"],
+    prefix="/profile",
+    tags=["profile"],
     dependencies=[Depends(get_current_user)]
 )
 router2 = APIRouter(
-    prefix="/user",
-    tags=["user"],
+    prefix="/profile",
+    tags=["profile"],
     dependencies=[Depends(get_current_user)]
 )
 
 public_router = APIRouter(
-    prefix="/user",
-    tags=["user"]
+    prefix="/profile",
+    tags=["profile"]
 )
 
 conf = ConnectionConfig(
@@ -69,12 +69,11 @@ class UserRequest(BaseModel):
     address: Optional[str] = None
 
 class CreateUserRequest(BaseModel):
-    email: str
-    username: str
     name: str
     address: Address
     phone: str
-    password: str
+    gender: GenderStatusEnum
+    age: int
 
 class UserResponse(BaseModel): #done
     user_id: int
@@ -91,34 +90,6 @@ class RegisterUserRequest(BaseModel):
     confirm_password: str
 
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-def create_access_code(data: dict, expires_delta: timedelta = None):
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    
-    access_code = random.randint(100000, 999999)
-    
-    # Store the access code and expiration time
-    pending_users[data["email"]] = {
-        "username": data["username"],
-        "password": data["password"],
-        "access_code": access_code,
-        "expires_at": expire
-    }
-    
-    return access_code
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
@@ -166,13 +137,16 @@ def get_paging_users(
     
 # A PUT REQUEST TO UPDATE USER
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, _user: UserRequest, db: Session = Depends(get_db)):
+def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
-    user = db.query(User).filter(User.user_id == user_id).update(
-        _user.model_dump(
-            exclude_unset=True, 
-            exclude_none=True
-        ))
+    user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
+    user_data = _user.dict()
+    
+    
+    address = _user.address
+    address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
+    user_data['address'] = address_string
+    user = db.query(Profile).filter(Profile.user_id == user_id).update(user_data)
     # Check if user exists
     # If not, raise an error
     if not user:
@@ -181,28 +155,3 @@ def update_user(user_id: int, _user: UserRequest, db: Session = Depends(get_db))
     db.commit()
     return user
 
-# A POST REQUEST TO CREATE USER
-@router.post('/', status_code=status.HTTP_201_CREATED)
-async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
-    user = authenticate_user(create_user_request.email, create_user_request.password, db)
-    if user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Email already exists')
-    create_user_request.password = bcrypt_context.hash(create_user_request.password)
-    
-    
-    user_data = create_user_request.dict()
-    
-    
-    address = create_user_request.address
-    address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
-    user_data['address'] = address_string
-    db_user = User(**user_data)
-    
-    print(db_user)
-    db.add(db_user)
-    db.commit()
-    return {"messsage": "User created successfully"}
-
-# register user
-pending_users = {} # For pending users
