@@ -3,6 +3,7 @@ from fastapi import Depends, HTTPException
 from starlette import status
 from sqlalchemy.orm import Session
 from models.user import User
+from models.account import Account
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from database.session import get_db
@@ -11,7 +12,7 @@ from auth import SECRET_KEY, ALGORITHM, bcrypt_context
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='api/v1/auth/token')
 
 def authenticate_user(username: str, password: str, db):
-    user = db.query(User).filter(User.username == username).first()
+    user = db.query(Account).filter(Account.username == username).first()
     if not user:
         return False
     if not bcrypt_context.verify(password, user.password):
@@ -34,7 +35,7 @@ def get_current_user(token: str = Depends(oauth2_bearer), db: Session = Depends(
                                 detail='Could not validate user')
         
         # Query the database for the latest user with the same username
-        user = db.query(User).filter(User.username == username).order_by(User.user_id.desc()).first()
+        user = db.query(Account).filter(Account.username == username).order_by(Account.user_id.desc()).first()
         if user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail='User not found')
