@@ -5,6 +5,7 @@ from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
 from models.user import User
 from models.order import Order
+from models.profile import Profile
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List, Optional
 from auth.utils import get_current_user, authenticate_user, bcrypt_context
@@ -270,7 +271,14 @@ async def register_user(register_user_request: RegisterUserRequest, db: Session 
     message = MessageSchema(
         subject="Email Confirmation",
         recipients=[register_user_request.email],
-        body = f"Please click the link to confirm your email:{confirmation_link}",
+        body=f"""
+        <h1>Welcome to Our Service</h1>
+        <p>Hi {register_user_request.username},</p>
+        <p>Thank you for registering with us. Please confirm your email address by clicking the link below:</p>
+        <a href="{confirmation_link}">Confirm Email Address</a>
+        <p>If you did not register for our service, please ignore this email.</p>
+        <p>Best regards.</p>
+        """,
         subtype="html"
     )
     
