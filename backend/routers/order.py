@@ -34,15 +34,15 @@ class ParcelResponse(BaseModel):
     parcel_size: str
 
 class ParcelRequest(BaseModel):
-    width: int
     length: int
+    width: int
     height: int
     weight: int
     # parcel_size: str
 
 class OrderRequest(BaseModel):
     parcel: ParcelRequest
-    sender_id: int
+    # sender_id: int
     recipient_id: int
     sending_locker_id: int
     receiving_locker_id: int
@@ -67,6 +67,8 @@ class Token2(BaseModel):
     order_id: int
     message: str
     parcel_size: str
+    sender_id: int  # Add sender_id here
+
 
     
 # Return all order along with their parcel and locker
@@ -140,12 +142,12 @@ def to_dict(model_instance):
     data.pop('_sa_instance_state', None)
     return data
 
-def determine_parcel_size(weight: int) -> str:
-    if weight <= 20:
+def determine_parcel_size(length: int, width: int, height:int, weight: int) -> str:
+    if length <= 13 and width <= 15 and height <= 30 and weight <= 20:
         return "S"
-    elif weight <= 50:
+    elif length <= 23 and width <= 15 and height <= 30 and weight <= 50:
         return "M"
-    elif weight <= 100:
+    elif length <= 33 and width <= 20 and height <= 30 and weight <= 100:
         return "L"
     else:
         raise HTTPException(status_code=400, detail="out of weight")
@@ -156,8 +158,6 @@ def create_order(order: OrderRequest,
                  db: Session = Depends(get_db),
                  current_user: User = Depends(get_current_user)):
     try:
-        # Set sender_id to the logged-in user's ID
-        order.sender_id = current_user.user_id
         # Convert order to dict and remove the parcel
         new_order_data = order.dict(exclude_none=True, exclude_unset=True)
         parcel_data = new_order_data.pop('parcel')
@@ -184,6 +184,9 @@ def create_order(order: OrderRequest,
         
         logging.debug(f"Found receiving cell: {receiving_cell.cell_id}")
         change_cell_occupied(receiving_cell.cell_id, True, db)
+
+         # Add sender_id to order data
+        new_order_data['sender_id'] = current_user.user_id
 
         # Update the order with the cell IDs
         new_order_data['sending_cell_id'] = sending_cell.cell_id
