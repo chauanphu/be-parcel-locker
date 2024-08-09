@@ -16,3 +16,4 @@ class Role(Base):
     
      # Relationship to User
     users = relationship('User', backref='role', lazy=True)
+    users = relationship('Profile', backref='role', lazy=True)
