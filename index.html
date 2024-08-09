@@ -38,7 +38,6 @@
                 navigator.geolocation.getCurrentPosition(position => {
                     const { latitude, longitude } = position.coords;
                     const timestamp = new Date().toISOString();
-                    
                     if (socket.readyState === WebSocket.OPEN) {
                         socket.send(JSON.stringify({
                             latitude,
