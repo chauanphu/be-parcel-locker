@@ -12,7 +12,6 @@ class Role(Base):
     
     role_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-  
     
-     # Relationship to User
-    users = relationship('User', backref='role', lazy=True)
+    
+print("Role model created successfully.")
