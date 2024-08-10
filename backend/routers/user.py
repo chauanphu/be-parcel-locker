@@ -40,7 +40,6 @@ router2 = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-
 public_router = APIRouter(
     prefix="/user",
     tags=["user"]

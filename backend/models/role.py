@@ -13,5 +13,5 @@ class Role(Base):
     role_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     
-    # Relationship to Profile
-    users = relationship('Profile', backref='role', lazy=True)
+    # # Relationship to Profile
+    # users = relationship('Profile', backref='role', lazy=True)
