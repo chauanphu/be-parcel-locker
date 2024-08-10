@@ -11,7 +11,7 @@ ADMIN_PASSWORD = config("ADMIN_PASSWORD")
 def create_default_admin():
     with session as db:
     # Check if the admin user already exists
-        admin = authenticate_user('admin@example.com', 'admin', db)
+        admin = authenticate_user('admin', '258456C@p', db)
         if admin:
             print("Admin user already exists.")
             return
@@ -26,6 +26,7 @@ def create_default_admin():
         admin_request.address = ""
         admin_request.phone = ""
         admin_request.password = bcrypt_context.hash(ADMIN_PASSWORD)
+        # admin_request.role = 1
         db.add(admin_request)
         db.commit()
         print("Admin user created successfully.")
