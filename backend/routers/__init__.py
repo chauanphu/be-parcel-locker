@@ -16,7 +16,7 @@ from .account import router2 as account_router2
 from .account import public_router as a_public_router
 
 from .profile import router as profile_router
-from .recipent import router as recipent_router
+from .recipient import router as recipent_router
 
 api_router = APIRouter(prefix="/api/v1")
 

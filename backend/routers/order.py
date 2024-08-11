@@ -22,10 +22,14 @@ router = APIRouter(
 )
 
 class OrderStatusEnum(str, Enum):
-    Ongoing = 'Ongoing'
-    Canceled = 'Canceled'
-    Completed = 'Completed'
-
+    Completed = "Completed"
+    Canceled = "Canceled"
+    Ongoing = "Ongoing"
+    Delayed = "Delayed"
+    Expired = "Expired"
+    
+class UpdateOrderStatusRequest(BaseModel):
+    status: OrderStatusEnum
 class ParcelResponse(BaseModel):
     width: int
     length: int
@@ -40,12 +44,20 @@ class ParcelRequest(BaseModel):
     weight: int
     # parcel_size: str
 
+class RecipientRequest(BaseModel):
+    email: str
+    name: str
+    phone: str
+    
 class OrderRequest(BaseModel):
     parcel: ParcelRequest
     # sender_id: int
-    recipient_id: int
+    recipient_id: RecipientRequest
     sending_locker_id: int
     receiving_locker_id: int
+    
+
+    
     
 
 class OrderResponse(BaseModel):
@@ -151,7 +163,14 @@ def determine_parcel_size(length: int, width: int, height:int, weight: int) -> s
         return "L"
     else:
         raise HTTPException(status_code=400, detail="out of weight")
-
+    
+def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str) -> int:
+    # Query the user by email
+    user = db.query(User).filter(User.email == email).first()
+    
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user.user_id
 #tạo order
 @router.post("/", response_model=Token2) 
 def create_order(order: OrderRequest, 
@@ -174,7 +193,10 @@ def create_order(order: OrderRequest,
         
         logging.debug(f"Found sending cell: {sending_cell.cell_id}")
         change_cell_occupied(sending_cell.cell_id, True, db)
-
+        
+    
+        
+        
         # Query the available cell in the receiving locker
         receiving_cell = find_available_cell(receiving_locker_id, parcel_size, db)
         if not receiving_cell:
@@ -184,9 +206,14 @@ def create_order(order: OrderRequest,
         
         logging.debug(f"Found receiving cell: {receiving_cell.cell_id}")
         change_cell_occupied(receiving_cell.cell_id, True, db)
-
+        
+        # Get recipient_id based on recipient information
+        recipient_data = order.recipient_id
+        recipient_id = get_user_id_by_recipient_info(db, recipient_data.email, recipient_data.phone, recipient_data.name)
+        
          # Add sender_id to order data
         new_order_data['sender_id'] = current_user.user_id
+        new_order_data['recipient_id'] = recipient_id
 
         # Update the order with the cell IDs
         new_order_data['sending_cell_id'] = sending_cell.cell_id
@@ -353,4 +380,26 @@ def update_package(order_id : int , send_date: date, db: Session = Depends(get_d
         "Message": "Sending date updated",
         "order_id": order_id,
         "sending_date": order.sending_date
+    }
+    
+
+
+@router.put("/order/{order_id}/status")
+def update_order_status(order_id: int, status_request: UpdateOrderStatusRequest, db: Session = Depends(get_db)):
+    # Find the order in the database
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    # Update the order status
+    order.order_status = status_request.status
+
+    # Commit the changes to the database
+    db.commit()
+    db.refresh(order)
+    
+    return {
+        "Message": "Status updated",
+        "order_id": order_id,
+        "current status:": status_request.status
     }

@@ -11,7 +11,7 @@ ADMIN_PASSWORD = config("ADMIN_PASSWORD")
 def create_default_admin():
     with session as db:
     # Check if the admin user already exists
-        admin = authenticate_user('admin', '258456C@p', db)
+        admin = authenticate_user(ADMIN_USERNAME, ADMIN_PASSWORD, db)
         if admin:
             print("Admin user already exists.")
             return

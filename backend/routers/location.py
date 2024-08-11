@@ -15,6 +15,7 @@ class GPSData(BaseModel):
     altitude: float = None
     speed: float = None
     accuracy: float = None
+    
 class dataGPS(BaseModel):
     latitude: float
     longitude: float
