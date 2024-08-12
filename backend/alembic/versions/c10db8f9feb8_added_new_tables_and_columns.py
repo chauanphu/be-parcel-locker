@@ -53,7 +53,7 @@ def upgrade() -> None:
     sa.Column('phone', sa.String(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('address', sa.String(), nullable=False),
-    sa.Column('gender', gender_recipient_enum, nullable=False),
+    sa.Column('gender', gender_recipient_enum, nullable=True),
     sa.PrimaryKeyConstraint('recipient_id')
     )
     op.create_index(op.f('ix_recipient_recipient_id'), 'recipient', ['recipient_id'], unique=False)
