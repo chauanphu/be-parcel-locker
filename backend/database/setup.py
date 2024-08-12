@@ -1,7 +1,7 @@
-from models import user, locker, order, parcel_type, parcel,role,account,profile,recipient
+from models import locker, order, parcel_type, parcel,role,account,profile,recipient
 from .__init__ import Base, engine
 
-from models.user import User
+# from models.user import User
 from models.account import Account
 from models.profile import Profile
 from auth.utils import bcrypt_context, authenticate_user

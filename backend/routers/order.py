@@ -4,10 +4,11 @@ from typing import Any, Dict, List, Optional
 import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from auth.utils import get_current_user
 from sqlalchemy.orm import Session, joinedload, aliased
-from models.user import User
+# from models.user import User
+from models.account import Account
 from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
@@ -38,6 +39,7 @@ class ParcelResponse(BaseModel):
     height: int
     weight: int
     parcel_size: str
+    date_created: date
 
 class ParcelRequest(BaseModel):
     length: int
@@ -47,7 +49,7 @@ class ParcelRequest(BaseModel):
     # parcel_size: str
 
 class RecipientRequest(BaseModel):
-    email: str
+    email: EmailStr
     name: str
     phone: str
     
@@ -170,16 +172,16 @@ def determine_parcel_size(length: int, width: int, height:int, weight: int) -> s
     
 def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str) -> int:
     # Query the user by email
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(Account).filter(Account.email == email).first()
     
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Recipient not found")
     return user.user_id
 #tạo order
 @router.post("/", response_model=Token2) 
 def create_order(order: OrderRequest, 
                  db: Session = Depends(get_db),
-                 current_user: User = Depends(get_current_user)):
+                 current_user: Account = Depends(get_current_user)):
     try:
         # Convert order to dict and remove the parcel
         new_order_data = order.dict(exclude_none=True, exclude_unset=True)
@@ -188,7 +190,7 @@ def create_order(order: OrderRequest,
         receiving_locker_id = new_order_data.pop('receiving_locker_id')
 
         # Determine parcel size based on dimensions and weight
-        parcel_size = determine_parcel_size(parcel_data['weight'])
+        parcel_size = determine_parcel_size(parcel_data['length'],parcel_data['width'],parcel_data['height'],parcel_data['weight'])
 
         # Query the available cell in the sending locker
         sending_cell = find_available_cell(sending_locker_id, parcel_size, db)
@@ -285,12 +287,7 @@ async def get_paging_order(
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel = ParcelResponse(
-            width = parcel.width,
-            length = parcel.length,
-            height = parcel.height,
-            weight = parcel.weight,
-            parcel_size = parcel.parcel_size)
+            parcel = order.parcel
         )
         order_responses.append(response) 
     total_pages = (total_orders + per_page - 1) // per_page
@@ -333,12 +330,7 @@ def get_package(order_id: int, db: Session = Depends(get_db)):
         sending_date=order.sending_date,
         receiving_date=order.receiving_date,
         order_status=order.order_status,
-        parcel = ParcelResponse(
-            width = parcel.width,
-            length = parcel.length,
-            height = parcel.height,
-            weight = parcel.weight,
-            parcel_size = parcel.parcel_size)
+        parcel = order.parcel
     )
     
     return response
