@@ -12,7 +12,8 @@ from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
 from routers.locker import LockerInfoResponse
-from routers.parcel import ParcelRequest, Parcel
+from routers.parcel import ParcelRequest, Parcel 
+from routers.profile import Profile
 from enum import Enum
 
 router = APIRouter(
@@ -58,12 +59,16 @@ class OrderRequest(BaseModel):
     
 
     
-    
+class sender_informations(BaseModel):
+    name : str
+    phone : str
+    address : str
 
 class OrderResponse(BaseModel):
     order_id: int
     parcel: ParcelResponse
     sender_id: int
+    sender_informations: sender_informations
     recipient_id: int
     sending_locker: LockerInfoResponse
     receiving_locker: LockerInfoResponse
@@ -72,7 +77,6 @@ class OrderResponse(BaseModel):
     receiving_date: date
     parcel: ParcelRequest
     order_status: OrderStatusEnum
-    date_created: datetime
     # warnings: bool
 
 class Token2(BaseModel):
@@ -258,10 +262,15 @@ async def get_paging_order(
 
     # Fetch paginated list of orders
     orders = db.query(Order).offset((page - 1) * per_page).limit(per_page).all()
+    profile = db.query(Profile).filter(Profile.user_id == orders.sender_id).first()
     order_responses = [
             {
                 "order_id": order.order_id,
                 "sender_id": order.sender_id,
+                "sender_informations":sender_informations(
+                name=profile.name,
+                phone=profile.phone,
+                address=profile.address),
                 "recipient_id": order.recipient_id,
                 "ordering_date": order.ordering_date,
                 "sending_date": order.sending_date,
@@ -286,21 +295,32 @@ async def get_paging_order(
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_package(order_id: int, db: Session = Depends(get_db), ):
     query = join_order_parcel_cell(db)
-    query = query.filter(Order.order_id == order_id).first()
-    if not query:
+    order = query.filter(Order.order_id == order_id).first()
+    if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    # Convert the order: Order to a dict and remove the sending_cell_id and receiving_cell_id
-    order = to_dict(query)
-    sending_cell_id = order.pop('sending_cell_id', None)
-    receiving_cell_id = order.pop('receiving_cell_id', None)
-    # Add the sending and receiving locker to the order
-    sending_locker = find_locker_by_cell(sending_cell_id, db)
-    receiving_locker = find_locker_by_cell(receiving_cell_id, db)
-    order['sending_locker'] = to_dict(sending_locker)
-    order['receiving_locker'] = to_dict(receiving_locker)
-    order['parcel'] = to_dict(order['parcel'])
-    return order
+    profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
+    # Extract and convert data
+    sending_locker = find_locker_by_cell(order.sending_cell_id, db)
+    receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
 
+    response = OrderResponse(
+        order_id=order.order_id,
+        sender_id=order.sender_id,
+        sender_informations=sender_informations(
+            name= profile.name,
+            phone= profile.phone,
+            address= profile.address
+        ),
+        recipient_id=order.recipient_id,
+        sending_locker=sending_locker,
+        receiving_locker=receiving_locker,
+        ordering_date=order.ordering_date,
+        sending_date=order.sending_date,
+        receiving_date=order.receiving_date,
+        order_status=order.order_status,
+    )
+    
+    return response
 #update order by user_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
