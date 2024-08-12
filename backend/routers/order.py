@@ -1,6 +1,6 @@
 from datetime import date, datetime
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
@@ -13,7 +13,7 @@ from models.locker import Cell, Locker
 from models.order import Order
 from routers.locker import LockerInfoResponse
 from routers.parcel import ParcelRequest, Parcel 
-from routers.profile import Profile
+from models.profile import Profile
 from enum import Enum
 
 router = APIRouter(
@@ -31,6 +31,7 @@ class OrderStatusEnum(str, Enum):
     
 class UpdateOrderStatusRequest(BaseModel):
     status: OrderStatusEnum
+    
 class ParcelResponse(BaseModel):
     width: int
     length: int
@@ -60,9 +61,9 @@ class OrderRequest(BaseModel):
 
     
 class sender_informations(BaseModel):
-    name : str
-    phone : str
-    address : str
+    name : Optional[str]
+    phone : Optional[str]
+    address : Optional[str]
 
 class OrderResponse(BaseModel):
     order_id: int
@@ -70,12 +71,11 @@ class OrderResponse(BaseModel):
     sender_id: int
     sender_informations: sender_informations
     recipient_id: int
-    sending_locker: LockerInfoResponse
-    receiving_locker: LockerInfoResponse
+    sending_locker: int
+    receiving_locker: int
     ordering_date:date
-    sending_date: date
-    receiving_date: date
-    parcel: ParcelRequest
+    sending_date: Optional[date] 
+    receiving_date: Optional[date]
     order_status: OrderStatusEnum
     # warnings: bool
 
@@ -262,26 +262,37 @@ async def get_paging_order(
 
     # Fetch paginated list of orders
     orders = db.query(Order).offset((page - 1) * per_page).limit(per_page).all()
-    profile = db.query(Profile).filter(Profile.user_id == orders.sender_id).first()
-    order_responses = [
-            {
-                "order_id": order.order_id,
-                "sender_id": order.sender_id,
-                "sender_informations":sender_informations(
-                name=profile.name,
-                phone=profile.phone,
-                address=profile.address),
-                "recipient_id": order.recipient_id,
-                "ordering_date": order.ordering_date,
-                "sending_date": order.sending_date,
-                "receiving_date": order.receiving_date,
-                "sending_cell_id": order.sending_cell_id,
-                "receiving_cell_id": order.receiving_cell_id,
-                "order_status": order.order_status,
-                "warnings": order.warnings,
-            }
-            for order in orders
-        ] 
+    order_responses = []
+    for order in orders:
+        # Fetch sender profile
+        profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
+        parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
+        sending_locker = find_locker_by_cell(order.sending_cell_id, db)
+        receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
+        # Create OrderResponse instance
+        response = OrderResponse(
+            order_id=order.order_id,
+            sender_id=order.sender_id,
+            sender_informations=sender_informations(
+                name = profile.name if profile else "",
+                phone = profile.phone if profile else "",
+                address = profile.address if profile else ""
+            ),
+            recipient_id = order.recipient_id,
+            sending_locker= sending_locker.locker_id,
+            receiving_locker= receiving_locker.locker_id,
+            ordering_date=order.ordering_date,
+            sending_date=order.sending_date,
+            receiving_date=order.receiving_date,
+            order_status=order.order_status,
+            parcel = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size)
+        )
+        order_responses.append(response) 
     total_pages = (total_orders + per_page - 1) // per_page
     return {
         "total": total_orders,
@@ -293,31 +304,41 @@ async def get_paging_order(
 
 #GET order bằng parcel_id
 @router.get("/{order_id}", response_model=OrderResponse)
-def get_package(order_id: int, db: Session = Depends(get_db), ):
+def get_package(order_id: int, db: Session = Depends(get_db)):
     query = join_order_parcel_cell(db)
     order = query.filter(Order.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
+    parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
+
     # Extract and convert data
     sending_locker = find_locker_by_cell(order.sending_cell_id, db)
     receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
 
+    
+    sender_info = sender_informations(
+        name=profile.name if profile else "",
+        phone=profile.phone if profile else "",
+        address=profile.address if profile else ""
+    )
     response = OrderResponse(
         order_id=order.order_id,
         sender_id=order.sender_id,
-        sender_informations=sender_informations(
-            name= profile.name,
-            phone= profile.phone,
-            address= profile.address
-        ),
+        sender_informations=sender_info,
         recipient_id=order.recipient_id,
-        sending_locker=sending_locker,
-        receiving_locker=receiving_locker,
+        sending_locker= sending_locker.locker_id,
+        receiving_locker= receiving_locker.locker_id,
         ordering_date=order.ordering_date,
         sending_date=order.sending_date,
         receiving_date=order.receiving_date,
         order_status=order.order_status,
+        parcel = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size)
     )
     
     return response
