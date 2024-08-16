@@ -39,7 +39,6 @@ class ParcelResponse(BaseModel):
     height: int
     weight: int
     parcel_size: str
-    date_created: date
 
 class ParcelRequest(BaseModel):
     length: int
@@ -287,7 +286,13 @@ async def get_paging_order(
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel = order.parcel
+            parcel = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size
+    )
         )
         order_responses.append(response) 
     total_pages = (total_orders + per_page - 1) // per_page
@@ -319,6 +324,14 @@ def get_package(order_id: int, db: Session = Depends(get_db)):
         phone=profile.phone if profile else "",
         address=profile.address if profile else ""
     )
+    
+    parcel_info = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size
+    )
     response = OrderResponse(
         order_id=order.order_id,
         sender_id=order.sender_id,
@@ -330,7 +343,7 @@ def get_package(order_id: int, db: Session = Depends(get_db)):
         sending_date=order.sending_date,
         receiving_date=order.receiving_date,
         order_status=order.order_status,
-        parcel = order.parcel
+        parcel = parcel_info
     )
     
     return response

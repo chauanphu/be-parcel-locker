@@ -17,6 +17,7 @@ class Order(Base):
     sender_id = Column(Integer, nullable=False)
     recipient_id = Column(Integer, nullable=False)
     
+    
     sending_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     receiving_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     

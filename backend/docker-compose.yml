@@ -35,4 +35,3 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin123
     depends_on:
       - db
-  
