@@ -366,20 +366,23 @@ def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends
 
 
 #delete order bằng parcel_id
-@router.delete("/{parcel_id}", response_model=str)
-def delete_package(parcel_id: int, db: Session = Depends(get_db)):
-    package_delete = db.query(Order).filter(Order.order_id == parcel_id).first()
+@router.delete("/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    order_delete = db.query(Order).filter(Order.order_id == order_id).first()
     #nếu order không được tìm thấy thì là not found
-    if not package_delete:
+    if not order_delete:
         raise HTTPException(status_code=404, detail="Order not found")
     #nếu xóa rồi mà quên xong xóa thêm lần nữa thì hiện ra là k tồn tại
-    if package_delete == None:
+    if order_delete == None:
         raise HTTPException(status_code=404, detail="Order not exist")
-
-    db.delete(package_delete)
+    parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
+    if parcel_to_delete:
+        db.delete(parcel_to_delete)
+    db.delete(order_delete)
     db.commit()
+    
     return {
-        "Message": "Order deleted"
+        "Message": "Order and parcel deleted"
     }
 
 # Get cell

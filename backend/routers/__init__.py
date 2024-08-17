@@ -36,5 +36,5 @@ api_router.include_router(a_public_router)
 api_router.include_router(profile_router)
 api_router.include_router(recipent_router)
 
-api_router.include_router(router_linkedlist)
-api_router.include_router(router_hashlist)
+# api_router.include_router(router_linkedlist)
+# api_router.include_router(router_hashlist)
