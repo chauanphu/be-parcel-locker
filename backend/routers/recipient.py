@@ -14,14 +14,14 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from decouple import config
 
 router = APIRouter(
-    prefix="/recipients",
-    tags=["recipients"],
+    prefix="/recipient",
+    tags=["recipient"],
     dependencies=[Depends(get_current_user)]
 )
 
 public_router = APIRouter(
-    prefix="/recipients",
-    tags=["recipients"]
+    prefix="/recipient",
+    tags=["recipient"]
 )
 
 
