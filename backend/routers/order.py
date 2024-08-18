@@ -39,7 +39,6 @@ class ParcelResponse(BaseModel):
     height: int
     weight: int
     parcel_size: str
-    date_created: date
 
 class ParcelRequest(BaseModel):
     length: int
@@ -287,7 +286,13 @@ async def get_paging_order(
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel = order.parcel
+            parcel = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size
+    )
         )
         order_responses.append(response) 
     total_pages = (total_orders + per_page - 1) // per_page
@@ -319,6 +324,14 @@ def get_package(order_id: int, db: Session = Depends(get_db)):
         phone=profile.phone if profile else "",
         address=profile.address if profile else ""
     )
+    
+    parcel_info = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size
+    )
     response = OrderResponse(
         order_id=order.order_id,
         sender_id=order.sender_id,
@@ -330,7 +343,7 @@ def get_package(order_id: int, db: Session = Depends(get_db)):
         sending_date=order.sending_date,
         receiving_date=order.receiving_date,
         order_status=order.order_status,
-        parcel = order.parcel
+        parcel = parcel_info
     )
     
     return response
@@ -353,20 +366,23 @@ def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends
 
 
 #delete order bằng parcel_id
-@router.delete("/{parcel_id}", response_model=str)
-def delete_package(parcel_id: int, db: Session = Depends(get_db)):
-    package_delete = db.query(Order).filter(Order.order_id == parcel_id).first()
+@router.delete("/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    order_delete = db.query(Order).filter(Order.order_id == order_id).first()
     #nếu order không được tìm thấy thì là not found
-    if not package_delete:
+    if not order_delete:
         raise HTTPException(status_code=404, detail="Order not found")
     #nếu xóa rồi mà quên xong xóa thêm lần nữa thì hiện ra là k tồn tại
-    if package_delete == None:
+    if order_delete == None:
         raise HTTPException(status_code=404, detail="Order not exist")
-
-    db.delete(package_delete)
+    parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
+    if parcel_to_delete:
+        db.delete(parcel_to_delete)
+    db.delete(order_delete)
     db.commit()
+    
     return {
-        "Message": "Order deleted"
+        "Message": "Order and parcel deleted"
     }
 
 # Get cell
