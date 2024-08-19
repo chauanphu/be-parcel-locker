@@ -6,7 +6,7 @@ class Shipper(Base):
     Represents profile of a user in the system.
     """
     __tablename__ = 'shipper'
-    
+
     shipper_id = Column(Integer, ForeignKey('profile.user_id'), primary_key=True, index=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey('order.order_id'),primary_key= True)
     name = Column(String)
@@ -14,5 +14,5 @@ class Shipper(Base):
     age = Column(Integer)
     phone = Column(String, nullable = False)
     address = Column(String, nullable = False)
-    
+    #có cần email hong zạ
 print("Shipper model created successfully.")
