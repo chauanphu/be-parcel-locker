@@ -36,7 +36,7 @@ router = APIRouter(
     tags=["account"],
     dependencies=[Depends(get_current_user)]
 )
-router2 = APIRouter(
+router2 = APIRouter( 
     prefix="/account",
     tags=["account"],
     dependencies=[Depends(get_current_user)]

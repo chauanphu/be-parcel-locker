@@ -5,6 +5,7 @@ from sqlalchemy import func
 from database.session import get_db
 from models.locker import Locker, Cell
 from models.order import Order
+from models.parcel import Parcel
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List
 from pydantic import BaseModel
@@ -214,10 +215,19 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
     
     for cell in cells_delete:
         # Delete all orders associated with each cell
-        db.query(Order).filter((Order.sending_cell_id == cell.cell_id) | (Order.receiving_cell_id == cell.cell_id)).delete()
-    
-    # Delete all cells associated with this locker
-    db.query(Cell).filter(Cell.locker_id == locker_id).delete()
+        orders_delete = db.query(Order).filter((Order.sending_cell_id == cell.cell_id) | (Order.receiving_cell_id == cell.cell_id)).all()
+        for order in orders_delete:
+            # if order == None:
+            #     raise HTTPException(status_code=404, detail="Order not found")
+            parcel =  db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
+            # if parcel == None:
+            #     raise HTTPException(status_code=404, detail="Parcel not found")
+            db.delete(parcel)
+            db.delete(order)
+            db.commit()
+        db.delete(cell)
+    # # Delete all cells associated with this locker
+    # db.query(Cell).filter(Cell.locker_id == locker_id).delete()
     
     
     db.delete(locker_delete)
