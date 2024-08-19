@@ -205,7 +205,7 @@ async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session 
     return cell.cell_id
 
 # Update locker by locker_id
-@router.put("/{locker_id}", response_model=LockerUpdateResponse)
+@router.put("/{locker_id}")
 async def update_locker(locker_id: int, _locker: LockerUpdateRequest, db: Session = Depends(get_db)):
     # Update locker status, allow partial update
     db_locker = db.query(Locker).filter(Locker.locker_id == locker_id).update(_locker.model_dump(
@@ -217,10 +217,9 @@ async def update_locker(locker_id: int, _locker: LockerUpdateRequest, db: Sessio
         raise HTTPException(status_code=404, detail="Locker not found")
     db.commit()
     # Return 200 OK
-    return LockerUpdateResponse(
-        message=f"Locker_id {locker_id} updated successfully",
-        locker_id=locker_id
-    )
+    return {
+         "Message": f"Locker_id {locker_id} successfully updated"
+    }
 
 # delete a locker
 @router.delete("/{locker_id}")
