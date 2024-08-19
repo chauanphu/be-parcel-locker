@@ -99,7 +99,7 @@ def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int,size: str,  db: Session = Depends(get_db)):
+def find_available_cell(locker_id: int, size_options: List[str], db: Session = Depends(get_db)):
     """
     Finds an available cell in the specified locker.
 
@@ -110,8 +110,15 @@ def find_available_cell(locker_id: int,size: str,  db: Session = Depends(get_db)
     Returns:
     - Cell: The first available cell found in the locker, or None if no available cells are found.
     """
-    query = db.query(Cell).filter(Cell.locker_id == locker_id).filter(Cell.size == size).filter(Cell.occupied == False)
-    return query.first()
+    for size in size_options:
+        cell = db.query(Cell).filter(
+            Cell.locker_id == locker_id,
+            Cell.size == size,
+            Cell.occupied == False
+        ).first()
+        if cell:
+            return cell, size
+    return None, None
 
 def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(get_db)):
     """
@@ -165,15 +172,19 @@ def to_dict(model_instance):
     data.pop('_sa_instance_state', None)
     return data
 
-def determine_parcel_size(length: int, width: int, height:int, weight: int) -> str:
+def determine_parcel_size(length: int, width: int, height: int, weight: int) -> List[str]:
+    size_options = []
     if length <= 13 and width <= 15 and height <= 30 and weight <= 20:
-        return "S"
-    elif length <= 23 and width <= 15 and height <= 30 and weight <= 50:
-        return "M"
-    elif length <= 33 and width <= 20 and height <= 30 and weight <= 100:
-        return "L"
-    else:
-        raise HTTPException(status_code=400, detail="out of weight")
+        size_options.append("S")
+    if length <= 23 and width <= 15 and height <= 30 and weight <= 50:
+        size_options.append("M")
+    if length <= 33 and width <= 20 and height <= 30 and weight <= 100:
+        size_options.append("L")
+    if not size_options:
+        raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
+    return size_options
+
+
     
 def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str) -> int:
     # Query the user by email
@@ -225,21 +236,18 @@ def create_order(order: OrderRequest,
         receiving_locker_id = new_order_data.pop('receiving_locker_id')
 
         # Determine parcel size based on dimensions and weight
-        parcel_size = determine_parcel_size(parcel_data['length'],parcel_data['width'],parcel_data['height'],parcel_data['weight'])
+        size_options = determine_parcel_size(parcel_data['length'], parcel_data['width'], parcel_data['height'], parcel_data['weight'])
 
         # Query the available cell in the sending locker
-        sending_cell = find_available_cell(sending_locker_id, parcel_size, db)
+        sending_cell, final_size = find_available_cell(sending_locker_id, size_options, db)
         if not sending_cell:
             raise HTTPException(status_code=400, detail="No available cells in the sending locker")
         
         logging.debug(f"Found sending cell: {sending_cell.cell_id}")
         change_cell_occupied(sending_cell.cell_id, True, db)
-        
-    
-        
-        
-        # Query the available cell in the receiving locker
-        receiving_cell = find_available_cell(receiving_locker_id, parcel_size, db)
+  
+       # Query the available cell in the receiving locker
+        receiving_cell, _ = find_available_cell(receiving_locker_id, [final_size], db)
         if not receiving_cell:
             # Free up the sending cell if the receiving cell is not available
             change_cell_occupied(sending_cell.cell_id, False, db)
@@ -265,7 +273,7 @@ def create_order(order: OrderRequest,
         db.refresh(new_order)
 
         # Create the parcel record
-        parcel_data['parcel_size'] = parcel_size
+        parcel_data['parcel_size'] = final_size
         parcel_data['parcel_id'] = new_order.order_id
         new_parcel = Parcel(**parcel_data)
         db.add(new_parcel)
@@ -275,7 +283,7 @@ def create_order(order: OrderRequest,
         return {
             "order_id": new_order.order_id,
             "message": 'Successfully created',
-            "parcel_size": parcel_size,
+            "parcel_size": final_size,
             "sender_id": current_user.user_id  
 
         }

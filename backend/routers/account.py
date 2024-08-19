@@ -220,6 +220,9 @@ async def confirm_email(token: str, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    new_profile = Profile(user_id=new_user.user_id)
+    db.add(new_profile)
+    db.commit()
     return {"message": "Email confirmed and user registered successfully"}
 
 
