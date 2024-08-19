@@ -9,5 +9,3 @@ app = FastAPI()
 app.include_router(router)
 
 client = TestClient(app)
-
-db_list = []
