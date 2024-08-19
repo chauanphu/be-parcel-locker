@@ -9,7 +9,7 @@ class Recipient(Base):
     name = Column(String, nullable=False)
     phone = Column(String, nullable=False)
     email = Column(String, nullable=False)
-    address = Column(String, nullable=False)
+    address = Column(String, nullable=True)
     gender = Column(Enum('Male', 'Female', 'Prefer not to respond', name='gender'))
     
 print("Recipient model created successfully.")

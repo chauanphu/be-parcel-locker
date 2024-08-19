@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload, aliased
 # from models.user import User
 from models.shipper import Shipper
 from models.account import Account
+from models.recipient import Recipient
 from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
@@ -180,36 +181,47 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     user = db.query(Account).filter(Account.email == email).first()
     
     if user is None:
-        raise HTTPException(status_code=404, detail="Recipient not found")
+        rec = db.query(Recipient).filter(Recipient.email == email).first()
+        if rec is None:
+            recipient = Recipient(
+                name = name,
+                phone = phone, 
+                email = email
+            )
+            db.add(recipient)
+            db.commit()
+            return recipient.recipient_id
+        else:
+            return rec.recipient_id
     return user.user_id
 
-#filter by shipper_id to get the completed order
-@router.get("/shippers/{shipper_id}/completed-orders", response_model=List[CompletedOrderResponse])
-def get_completed_orders_by_shipper(shipper_id: int, db: Session = Depends(get_db)):
-    # Check if the shipper exists and has role = 3
-    shipper = db.query(Shipper).join(Account).filter(Shipper.shipper_id == shipper_id, Account.role == 3).first()
+# #filter by shipper_id to get the completed order
+# @router.get("/shippers/{shipper_id}/completed-orders", response_model=List[CompletedOrderResponse])
+# def get_completed_orders_by_shipper(shipper_id: int, db: Session = Depends(get_db)):
+#     # Check if the shipper exists and has role = 3
+#     shipper = db.query(Shipper).join(Account).filter(Shipper.shipper_id == shipper_id, Account.role == 3).first()
     
-    if not shipper:
-        raise HTTPException(status_code=404, detail="Shipper with given ID not found or does not have the role of a shipper")
+#     if not shipper:
+#         raise HTTPException(status_code=404, detail="Shipper with given ID not found or does not have the role of a shipper")
 
-    # Query for orders completed by this shipper
-    completed_orders = db.query(Order).filter(
-        Order.order_id == shipper.order_id,
-        Order.order_status == 'Completed'
-    ).all()
+#     # Query for orders completed by this shipper
+#     completed_orders = db.query(Order).filter(
+#         Order.order_id == shipper.order_id,
+#         Order.order_status == 'Completed'
+#     ).all()
 
-    if not completed_orders:
-        raise HTTPException(status_code=404, detail="No completed orders found for this shipper")
+#     if not completed_orders:
+#         raise HTTPException(status_code=404, detail="No completed orders found for this shipper")
 
-    return [
-        CompletedOrderResponse(
-            order_id=order.order_id,
-            recipient_id=order.recipient_id,
-            sending_date=order.sending_date,
-            receiving_date=order.receiving_date,
-            order_status=order.order_status
-        ) for order in completed_orders
-    ]
+#     return [
+#         CompletedOrderResponse(
+#             order_id=order.order_id,
+#             recipient_id=order.recipient_id,
+#             sending_date=order.sending_date,
+#             receiving_date=order.receiving_date,
+#             order_status=order.order_status
+#         ) for order in completed_orders
+#     ]
 
 
 #tạo order
