@@ -52,7 +52,7 @@ def upgrade() -> None:
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('phone', sa.String(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
-    sa.Column('address', sa.String(), nullable=False),
+    sa.Column('address', sa.String(), nullable=True),
     sa.Column('gender', gender_recipient_enum, nullable=True),
     sa.PrimaryKeyConstraint('recipient_id')
     )

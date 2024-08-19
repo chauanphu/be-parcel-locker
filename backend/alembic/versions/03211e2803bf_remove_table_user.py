@@ -34,7 +34,7 @@ def downgrade() -> None:
     sa.Column('address', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.Column('phone', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.Column('password', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('status', postgresql.ENUM('Active', 'Inactive', 'Blocked', name='status'), server_default=sa.text("'Active'::status"), autoincrement=False, nullable=False),
+    # sa.Column('status', postgresql.ENUM('Active', 'Inactive', 'Blocked', name='status'), server_default=sa.text("'Active'::status"), autoincrement=False, nullable=False),
     sa.Column('Date_created', postgresql.TIMESTAMP(), server_default=sa.text('now()'), autoincrement=False, nullable=False),
     sa.Column('role', sa.INTEGER(), server_default=sa.text('2'), autoincrement=False, nullable=False),
     sa.PrimaryKeyConstraint('user_id', 'email', name='user_pkey')

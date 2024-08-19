@@ -44,7 +44,7 @@ def downgrade() -> None:
                existing_nullable=True)
     op.alter_column('recipient', 'address',
                existing_type=sa.VARCHAR(),
-               nullable=False)
+               nullable=True)
     op.alter_column('profile', 'gender',
                existing_type=sa.Enum('Male', 'Female', 'Prefer not to respond', name='gender_profile'),
                type_=postgresql.ENUM('Male', 'Female', 'Prefer not to respond', name='gender_profile'),

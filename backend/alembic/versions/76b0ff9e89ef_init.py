@@ -92,6 +92,7 @@ def upgrade() -> None:
     #Role table
     op.create_table('role',
     sa.Column('role_id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('name', sa.String()),
     sa.PrimaryKeyConstraint('role_id'),     
     )
     op.create_index(op.f('ix_role_role_id'), 'role', ['role_id'], unique=False)
