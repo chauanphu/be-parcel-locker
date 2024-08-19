@@ -100,7 +100,7 @@ def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int, size_options: List[str], db: Session = Depends(get_db)):
+def find_available_cell(locker_id: int, size_options: List[str], db: Session):
     """
     Finds an available cell in the specified locker.
 
@@ -111,17 +111,17 @@ def find_available_cell(locker_id: int, size_options: List[str], db: Session = D
     Returns:
     - Cell: The first available cell found in the locker, or None if no available cells are found.
     """
-    for size in size_options:
-        cell = db.query(Cell).filter(
-            Cell.locker_id == locker_id,
-            Cell.size == size,
-            Cell.occupied == False
-        ).first()
-        if cell:
-            return cell, size
+    cell = db.query(Cell).filter(
+        Cell.locker_id == locker_id,
+        Cell.size.in_(size_options),
+        Cell.occupied == False
+    ).first()
+    if cell:
+        return cell, cell.size   
+    # Return (None, None) if no cell is found for any of the sizes
     return None, None
 
-def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(get_db)):
+def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session):
     """
     Changes the occupied status of the specified cell.
     Parameters:
@@ -132,9 +132,14 @@ def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(ge
     Returns:
     - Cell: The updated cell.
     """
-    query = db.query(Cell).filter(Cell.cell_id == cell_id).update({"occupied": occupied})
-    db.commit()
-    return query
+    cell = db.query(Cell).filter(Cell.cell_id == cell_id).first()
+    if cell:
+        logging.debug(f"Changing cell {cell_id} occupied status to {occupied}")
+        cell.occupied = occupied
+        db.commit()
+    else:
+        logging.error(f"Cell with id {cell_id} not found")
+
 
 def find_locker_by_cell(cell_id: uuid, db: Session = Depends(get_db)):
     """
