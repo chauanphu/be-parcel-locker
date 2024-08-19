@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import DateTime
 from fastapi import APIRouter, HTTPException, Depends,Query
 from pydantic import BaseModel, EmailStr, Field
+from models.shipper import Shipper
 from database.session import get_db
 # from models.user import User
 from models.order import Order
@@ -43,6 +44,10 @@ public_router = APIRouter(
     prefix="/profile",
     tags=["profile"]
 )
+shipper_router = APIRouter(
+    prefix="/shipper",
+    tags=["shipper"]
+)  
 
 conf = ConnectionConfig(
     MAIL_USERNAME=MAIL_USERNAME,
@@ -89,7 +94,12 @@ class RegisterUserRequest(BaseModel):
     password: str = Field(..., min_length=6)
     confirm_password: str
 
-
+# class RegisterShipperRequest(BaseModel):
+#     username: str
+#     email: EmailStr
+#     password: str = Field(..., min_length=6)
+#     confirm_password: str
+#     role: int = 3
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), ):
@@ -116,12 +126,13 @@ def get_paging_users(
             {
                 "user_id": user.user_id,
                 "name": user.name,
-                "email": user.email,
+                # "email": user.email,
                 "phone": user.phone,
                 "address": user.address,
-                "status": user.status,
-                "Date_created": user.Date_created,
-                "role": user.role,
+                # "status": user.status,
+                # "Date_created": user.Date_created,
+                # "role": user.role,
+                #table profile trong models chưa có mấy cái xanh lá nên nếu để thì nó lỗi 500 á
             }
             for user in users
         ]
@@ -155,3 +166,38 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     db.commit()
     return user
 
+#GET PAGING SHIPPER
+@shipper_router.get("/", response_model=Dict[str, Any])
+def get_paging_shippers(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+    # Total number of shippers
+    total_shippers = db.query(Shipper).count()
+
+    # Fetch paginated list of shippers
+    shippers = db.query(Shipper).offset((page - 1) * per_page).limit(per_page).all()
+
+    # Format the response
+    shipper_responses = [
+        {
+            "shipper_id": shipper.shipper_id,
+            "order_id": shipper.order_id,
+            "name": shipper.name,
+            "gender": shipper.gender,
+            "age": shipper.age,
+            "phone": shipper.phone,
+            "address": shipper.address,
+        }
+        for shipper in shippers
+    ]
+
+    total_pages = (total_shippers + per_page - 1) // per_page
+    return {
+        "total": total_shippers,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": shipper_responses
+    }
