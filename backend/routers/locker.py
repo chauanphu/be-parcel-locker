@@ -187,6 +187,7 @@ async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session 
     db.refresh(cell)
     return cell.cell_id
 
+# Update locker by locker_id
 @router.put("/{locker_id}", response_model=int)
 async def update_locker(locker_id: int, _locker: CellRequestCreate, db: Session = Depends(get_db)):
     # Update locker status, allow partial update
