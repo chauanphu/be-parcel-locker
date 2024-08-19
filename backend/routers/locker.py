@@ -75,10 +75,6 @@ class LockerUpdateRequest(BaseModel):
     longitude: Optional[float] = None
     locker_status: Optional[LockerStatusEnum] = None
 
-class LockerUpdateResponse(BaseModel):
-    message: str
-    locker_id: int
-
 class DensityResponse(BaseModel):
     locker_id: int
     total_cells: int
