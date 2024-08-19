@@ -168,7 +168,7 @@ def get_cells_by_paging(
 @router.post("/", response_model=int)
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
 
-    find_locker = db.query(Locker).filter((Locker.latitude == LockerInfoResponse.latitude)&(Locker.longitude == LockerInfoResponse.longitude))
+    find_locker = db.query(Locker).filter((Locker.latitude == LockerInfoResponse.latitude)&(Locker.longitude == LockerInfoResponse.longitude)).first()
 
     if find_locker == None:
         # Add new locker
