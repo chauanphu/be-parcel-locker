@@ -166,38 +166,4 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     db.commit()
     return user
 
-#GET PAGING SHIPPER
-@shipper_router.get("/", response_model=Dict[str, Any])
-def get_paging_shippers(
-    db: Session = Depends(get_db),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1)
-):
-    # Total number of shippers
-    total_shippers = db.query(Shipper).count()
 
-    # Fetch paginated list of shippers
-    shippers = db.query(Shipper).offset((page - 1) * per_page).limit(per_page).all()
-
-    # Format the response
-    shipper_responses = [
-        {
-            "shipper_id": shipper.shipper_id,
-            "order_id": shipper.order_id,
-            "name": shipper.name,
-            "gender": shipper.gender,
-            "age": shipper.age,
-            "phone": shipper.phone,
-            "address": shipper.address,
-        }
-        for shipper in shippers
-    ]
-
-    total_pages = (total_shippers + per_page - 1) // per_page
-    return {
-        "total": total_shippers,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "data": shipper_responses
-    }

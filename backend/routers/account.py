@@ -36,7 +36,7 @@ router = APIRouter(
     tags=["account"],
     dependencies=[Depends(get_current_user)]
 )
-router2 = APIRouter(
+router2 = APIRouter( 
     prefix="/account",
     tags=["account"],
     dependencies=[Depends(get_current_user)]
@@ -45,10 +45,10 @@ public_router = APIRouter(
     prefix="/account",
     tags=["account"]
 )
-shipper_router = APIRouter(
-    prefix="/shipper",
-    tags=["shipper"]
-)    
+# shipper_router = APIRouter(
+#     prefix="/shipper",
+#     tags=["shipper"]
+# )    
 
 conf = ConnectionConfig(
     MAIL_USERNAME=MAIL_USERNAME,
@@ -92,12 +92,12 @@ class RegisterUserRequest(BaseModel):
     password: str = Field(..., min_length=6)
     confirm_password: str
 
-class RegisterShipperRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str = Field(..., min_length=6)
-    confirm_password: str
-    role: int = 3
+# class RegisterShipperRequest(BaseModel):
+#     username: str
+#     email: EmailStr
+#     password: str = Field(..., min_length=6)
+#     confirm_password: str
+#     role: int = 3
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -128,42 +128,6 @@ def create_access_code(data: dict, expires_delta: timedelta = None):
     }
     
     return access_code
-
-
-@shipper_router.post('/create_shipper', status_code=status.HTTP_201_CREATED)
-async def create_shipper(create_shipper_request: RegisterShipperRequest, db: Session = Depends(get_db)):
-    # Check if passwords match
-    if create_shipper_request.password != create_shipper_request.confirm_password:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Passwords do not match')
-    
-    # Check if the username or email already exists
-    existing_user = db.query(Account).filter(
-        (Account.username == create_shipper_request.username) #thêm email vào models shipper??
-        (Account.email == create_shipper_request.email)
-    ).first()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Username or email already exists')
-    
-    # Hash the password
-    hashed_password = bcrypt_context.hash(create_shipper_request.password)
-    
-    # Create new account with role = 3 (Shipper)
-    new_account = Account(
-        email=create_shipper_request.email,
-        name=create_shipper_request.username,
-        password=hashed_password,
-        role=3  # Role for Shipper
-    )
-    
-    # Add the new account to the database
-    db.add(new_account)
-    db.commit()
-    db.refresh(new_account)
-    
-    return {"message": "Shipper account created successfully", 
-            "shipper_id": new_account.user_id,
-            "role": new_account.role}
-
 
 # # A POST REQUEST TO CREATE USER
 # @router.post('/', status_code=status.HTTP_201_CREATED)

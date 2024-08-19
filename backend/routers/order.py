@@ -342,7 +342,7 @@ async def get_paging_order(
 
 #GET order bằng parcel_id
 @router.get("/{order_id}", response_model=OrderResponse)
-def get_package(order_id: int, db: Session = Depends(get_db)):
+def get_order(order_id: int, db: Session = Depends(get_db)):
     query = join_order_parcel_cell(db)
     order = query.filter(Order.order_id == order_id).first()
     if not order:
