@@ -7,7 +7,7 @@ from models.locker import Locker, Cell
 from models.order import Order
 from models.parcel import Parcel
 from sqlalchemy.orm import Session
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from auth.utils import get_current_user
 from uuid import UUID
@@ -68,6 +68,16 @@ class LockerCreateRequest(BaseModel):
     latitude: float
     longitude: float
     locker_status: LockerStatusEnum
+    
+class LockerUpdateRequest(BaseModel):
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    locker_status: Optional[LockerStatusEnum] = None
+
+class LockerUpdateResponse(BaseModel):
+    message: str
+    locker_id: int
 
 class DensityResponse(BaseModel):
     locker_id: int
@@ -189,10 +199,10 @@ async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session 
     return cell.cell_id
 
 # Update locker by locker_id
-@router.put("/{locker_id}", response_model=int)
-async def update_locker(locker_id: int, _locker: CellRequestCreate, db: Session = Depends(get_db)):
+@router.put("/{locker_id}", response_model=LockerUpdateResponse)
+async def update_locker(locker_id: int, _locker: LockerUpdateRequest, db: Session = Depends(get_db)):
     # Update locker status, allow partial update
-    db_locker = db.query(Cell).filter(Cell.locker_id == locker_id).update(_locker.model_dump(
+    db_locker = db.query(Locker).filter(Locker.locker_id == locker_id).update(_locker.model_dump(
         exclude_unset=True, 
         exclude_none=True
         ))
@@ -201,7 +211,10 @@ async def update_locker(locker_id: int, _locker: CellRequestCreate, db: Session 
         raise HTTPException(status_code=404, detail="Locker not found")
     db.commit()
     # Return 200 OK
-    return locker_id
+    return LockerUpdateResponse(
+        message=f"Locker_id {locker_id} updated successfully",
+        locker_id=locker_id
+    )
 
 # delete a locker
 @router.delete("/{locker_id}")
