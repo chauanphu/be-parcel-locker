@@ -47,8 +47,8 @@ def downgrade() -> None:
         DELETE FROM role WHERE role_id IN (1, 2, 3);
         """
     )
-    op.drop_constraint(None, 'order', type_='foreignkey')
     op.drop_constraint(None, 'account', type_='foreignkey')
+    op.drop_constraint(None, 'order', type_='foreignkey')
     op.drop_constraint(None, 'account', type_='unique')
     op.drop_constraint(None, 'account', type_='unique')
     # ### end Alembic commands ###

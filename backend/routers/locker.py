@@ -177,12 +177,18 @@ def get_cells_by_paging(
 
 @router.post("/", response_model=int)
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
-    # Add new locker
-    locker = Locker(**locker.model_dump())
-    db.add(locker)
-    db.commit()
-    db.refresh(locker)
-    return locker.locker_id
+
+    find_locker = db.query(Locker).filter((Locker.latitude == LockerInfoResponse.latitude)&(Locker.longitude == LockerInfoResponse.longitude))
+
+    if find_locker == None:
+        # Add new locker
+        locker = Locker(**locker.model_dump())
+        db.add(locker)
+        db.commit()
+        db.refresh(locker)
+        return locker.locker_id
+    else:
+        return {"Message: Locker existed!"}
 
 @router.post("/{locker_id}/cell", response_model=UUID)
 async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
