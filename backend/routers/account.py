@@ -280,3 +280,29 @@ async def confirm_email(code: int, email: str, db: Session = Depends(get_db)):
     pending_users.pop(email)
     
     return {"message": "Email confirmed and user registered successfully"}
+
+
+
+@router.delete("/delete_account_for_current_user")
+async def delete_account_user(db: Session = Depends(get_db),
+                              current_user: Account = Depends(get_current_user)):
+    profile = db.query(Profile).filter(Profile.user_id == current_user.user_id).first()
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no profile")
+    if profile.name == "Admin":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin profile")
+    acc = db.query(Account).filter(Account.user_id == current_user.user_id).first()
+    if acc is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no account")
+    if acc.email == "admin@example.com":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin account")
+    
+    db.delete(profile)
+    db.commit()
+    db.delete(acc)
+    db.commit()
+    
+    return {
+        "Message": "Account deleted sucessfully"
+    }
+    
