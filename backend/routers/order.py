@@ -194,6 +194,7 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     if user is None:
         rec = db.query(Recipient).filter(Recipient.email == email).first()
         if rec is None:
+            #Make recipients_id become the next user_id 
             recipient = Recipient(
                 name = name,
                 phone = phone, 
