@@ -14,7 +14,7 @@ class Order(Base):
     order_id = Column(Integer,primary_key=True, index=True) 
     
     # sender_id = Column(Integer, ForeignKey('profile.user_id'), nullable=False)
-    sender_id = Column(Integer,ForeignKey('profile.user_id'), nullable=False)
+    sender_id = Column(Integer, ForeignKey('profile.user_id'), nullable=False)
     recipient_id = Column(Integer, nullable=False)
     
     

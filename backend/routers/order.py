@@ -409,7 +409,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     )
     
     return response
-#update order by user_id    
+#update order by parcel_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates

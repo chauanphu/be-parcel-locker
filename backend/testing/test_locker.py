@@ -18,6 +18,17 @@ def test_get_lockers_by_paging():
     assert "per_page" in response.json()
     assert "data" in response.json()
     
+# Test function for the create_locker endpoint
+def test_create_locker(auth_headers):
+    payload = {
+        "address": "123 Test St",
+        "latitude": 12.34,
+        "longitude": 56.78,
+        "locker_status": "Active"
+    }
+    response = client.post("/api/v1/locker/", json=payload , headers=auth_headers)
+    assert response.status_code == 200    
+    
 # # Test function for the get_locker endpoint
 # def test_get_locker(auth_headers):
 #     response = client.get("/api/v1/locker/2", headers= auth_headers)
@@ -35,17 +46,7 @@ def test_get_lockers_by_paging():
 #     assert "page" in response.json()
 #     assert "data" in response.json()
 
-# # Test function for the create_locker endpoint
-# def test_create_locker():
-#     payload = {
-#         "address": "123 Test St",
-#         "latitude": 12.34,
-#         "longitude": 56.78,
-#         "locker_status": "Active"
-#     }
-#     response = client.post("/api/v1/locker/", json=payload)
-#     assert response.status_code == 200
-#     assert isinstance(response.json(), int)
+
 
 # # Test function for the create_cell endpoint
 # def test_create_cell():
