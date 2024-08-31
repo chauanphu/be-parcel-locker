@@ -133,13 +133,12 @@ def get_paging_users(
             {
                 "user_id": user.user_id,
                 "name": user.name,
-                # "email": user.email,
+                "email": user.email,
                 "phone": user.phone,
                 "address": user.address,
-                # "status": user.status,
-                # "Date_created": user.Date_created,
+                "status": user.status,
+                "Date_created": user.Date_created,
                 # "role": user.role,
-                #table profile trong models chưa có mấy cái xanh lá nên nếu để thì nó lỗi 500 á
             }
             for user in users
         ]
