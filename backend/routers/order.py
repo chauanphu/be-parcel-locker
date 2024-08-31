@@ -199,6 +199,7 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     if user is None:
         rec = db.query(Recipient).filter(Recipient.email == email).first()
         if rec is None:
+            #Make recipients_id become the next user_id 
             recipient = Recipient(
                 name = name,
                 phone = phone, 
@@ -408,7 +409,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     )
     
     return response
-#update order by user_id    
+#update order by parcel_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
