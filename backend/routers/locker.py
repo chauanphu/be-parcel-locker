@@ -320,14 +320,14 @@ async def update_cell_to_false(order_id: int, db: Session = Depends(get_db)):
     }
 
 # Get density of occupied cells by locker_id
-@router.get("/{locker_id}/density", response_model=DensityResponse)
-def get_density(locker_id: int, db: Session = Depends(get_db)):
+@router.get("/{locker_id}, {size}/density", response_model=DensityResponse)
+def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
     
-    # Get all cells in the locker
-    all_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id).count()
+    # Get all cells in size in the locker
+    all_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size).count()
     
-    # Get occupied cells in the locker
-    occupied_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.occupied == True).count()
+    # Get occupied cells of a specific size in the locker
+    occupied_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size, Cell.occupied == True).count()
     
     # If no cells are found, raise 404
     if all_cells_count == 0:
