@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test with GPS</title>
+</head>
+<body>
+    <h1>WebSocket Test with GPS Data</h1>
+    <script>
+        // Replace with your WebSocket URL
+        const wsUrl = 'ws://localhost:8000/api/v1/location/ws';
+        const socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+            console.log('WebSocket connection established');
+            // Start sending GPS data every 5 seconds
+            startSendingGPSData();
+        };
+
+        socket.onmessage = (event) => {
+            // Handle incoming messages
+            const message = JSON.parse(event.data);
+            console.log('Message from server:', message);
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed');
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        // Function to get current GPS location and send it to the WebSocket server
+        function sendGPSData() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const { latitude, longitude } = position.coords;
+                    const timestamp = new Date().toISOString();
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            latitude,
+                            longitude,
+                            timestamp
+                        }));
+                    } else {
+                        console.error('WebSocket is not open. Unable to send message.');
+                    }
+                }, error => {
+                    console.error('Error getting GPS data:', error);
+                });
+            } else {
+                console.error('Geolocation is not supported by this browser.');
+            }
+        }
+
+        // Function to start sending GPS data every 5 seconds
+        function startSendingGPSData() {
+            sendGPSData(); // Send immediately on start
+            setInterval(sendGPSData, 5000); // Send every 5 seconds
+        }
+    </script>
+</body>
+</html>

@@ -1,15 +1,23 @@
-from datetime import date
+from datetime import date, datetime
+import logging
+from typing import Any, Dict, List, Optional
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from auth.utils import get_current_user
 from sqlalchemy.orm import Session, joinedload, aliased
+# from models.user import User
+from models.shipper import Shipper
+from models.account import Account
+from models.recipient import Recipient
 from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
 from routers.locker import LockerInfoResponse
-from routers.parcel import ParcelRequest, Parcel
+from routers.parcel import ParcelRequest, Parcel 
+from models.profile import Profile
+from enum import Enum
 
 router = APIRouter(
     prefix="/order",
@@ -17,6 +25,16 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+class OrderStatusEnum(str, Enum):
+    Completed = "Completed"
+    Canceled = "Canceled"
+    Ongoing = "Ongoing"
+    Delayed = "Delayed"
+    Expired = "Expired"
+    
+class UpdateOrderStatusRequest(BaseModel):
+    status: OrderStatusEnum
+    
 class ParcelResponse(BaseModel):
     width: int
     length: int
@@ -25,40 +43,64 @@ class ParcelResponse(BaseModel):
     parcel_size: str
 
 class ParcelRequest(BaseModel):
-    width: int
     length: int
+    width: int
     height: int
     weight: int
-    parcel_size: str
+    # parcel_size: str
 
+class RecipientRequest(BaseModel):
+    email: EmailStr
+    name: str
+    phone: str
+    
 class OrderRequest(BaseModel):
     parcel: ParcelRequest
-    sender_id: int
-    recipient_id: int
+    # sender_id: int
+    recipient_id: RecipientRequest
     sending_locker_id: int
     receiving_locker_id: int
-    ordering_date:date
-    sending_date: date
-    receiving_date: date
+    
+
+    
+class sender_informations(BaseModel):
+    name : Optional[str]
+    phone : Optional[str]
+    address : Optional[str]
 
 class OrderResponse(BaseModel):
     order_id: int
     parcel: ParcelResponse
     sender_id: int
+    sender_informations: sender_informations
     recipient_id: int
-    sending_locker: LockerInfoResponse
-    receiving_locker: LockerInfoResponse
+    sending_locker: int
+    receiving_locker: int
     ordering_date:date
-    sending_date: date
-    receiving_date: date
-    parcel: ParcelRequest
+    sending_date: Optional[date] 
+    receiving_date: Optional[date]
+    order_status: OrderStatusEnum
+    # warnings: bool
 
+class Token2(BaseModel):
+    order_id: int
+    message: str
+    parcel_size: str
+    sender_id: int  # Add sender_id here
+
+class CompletedOrderResponse(BaseModel):
+    order_id: int
+    recipient_id: int
+    sending_date: Optional[date]
+    receiving_date: Optional[date]
+    order_status: str
+    
 # Return all order along with their parcel and locker
 def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int, db: Session = Depends(get_db)):
+def find_available_cell(locker_id: int, size_options: List[str], db: Session):
     """
     Finds an available cell in the specified locker.
 
@@ -69,13 +111,19 @@ def find_available_cell(locker_id: int, db: Session = Depends(get_db)):
     Returns:
     - Cell: The first available cell found in the locker, or None if no available cells are found.
     """
-    query = db.query(Cell).filter(Cell.locker_id == locker_id).filter(Cell.occupied == False)
-    return query.first()
+    cell = db.query(Cell).filter(
+        Cell.locker_id == locker_id,
+        Cell.size.in_(size_options),
+        Cell.occupied == False
+    ).first()
+    if cell:
+        return cell, cell.size   
+    # Return (None, None) if no cell is found for any of the sizes
+    return None, None
 
-def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(get_db)):
+def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session):
     """
     Changes the occupied status of the specified cell.
-
     Parameters:
     - cell_id (uuid): The ID of the cell to change the status of.
     - occupied (bool): The new occupied status of the cell.
@@ -84,9 +132,14 @@ def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session = Depends(ge
     Returns:
     - Cell: The updated cell.
     """
-    query = db.query(Cell).filter(Cell.cell_id == cell_id).update({"occupied": occupied})
-    db.commit()
-    return query
+    cell = db.query(Cell).filter(Cell.cell_id == cell_id).first()
+    if cell:
+        logging.debug(f"Changing cell {cell_id} occupied status to {occupied}")
+        cell.occupied = occupied
+        db.commit()
+    else:
+        logging.error(f"Cell with id {cell_id} not found")
+
 
 def find_locker_by_cell(cell_id: uuid, db: Session = Depends(get_db)):
     """
@@ -125,56 +178,249 @@ def to_dict(model_instance):
     data.pop('_sa_instance_state', None)
     return data
 
+def determine_parcel_size(length: int, width: int, height: int, weight: int) -> List[str]:
+    size_options = []
+    if length <= 13 and width <= 15 and height <= 30 and weight <= 20:
+        size_options.append("S")
+    if length <= 23 and width <= 15 and height <= 30 and weight <= 50:
+        size_options.append("M")
+    if length <= 33 and width <= 20 and height <= 30 and weight <= 100:
+        size_options.append("L")
+    if not size_options:
+        raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
+    return size_options
+
+
+    
+def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str) -> int:
+    # Query the user by email
+    user = db.query(Account).filter(Account.email == email).first()
+    
+    if user is None:
+        recipient_query = db.query(Recipient).filter(Recipient.phone == phone).first()
+        if recipient_query is None:
+            #Then the profile_id of the recipient is null and save a new recipient
+            recipient = Recipient(
+                name = name,
+                phone = phone, 
+                email = email
+            )
+            db.add(recipient)
+            db.commit()
+            return recipient.recipient_id
+        else:
+            return recipient_query.recipient_id
+        
+    #if the user already in the database, create a recipient with that user_id 
+    profile = db.query(Profile).filter(Profile.user_id == user.user_id).first()
+    user_recipient = Recipient(
+        name = profile.name,
+        phone = profile.phone,
+        email = user.email,
+        profile_id = profile.user_id
+    )
+    db.add(user_recipient)
+    db.commit()
+    return user_recipient.recipient_id
+
+# #filter by shipper_id to get the completed order
+# @router.get("/shippers/{shipper_id}/completed-orders", response_model=List[CompletedOrderResponse])
+# def get_completed_orders_by_shipper(shipper_id: int, db: Session = Depends(get_db)):
+#     # Check if the shipper exists and has role = 3
+#     shipper = db.query(Shipper).join(Account).filter(Shipper.shipper_id == shipper_id, Account.role == 3).first()
+    
+#     if not shipper:
+#         raise HTTPException(status_code=404, detail="Shipper with given ID not found or does not have the role of a shipper")
+
+#     # Query for orders completed by this shipper
+#     completed_orders = db.query(Order).filter(
+#         Order.order_id == shipper.order_id,
+#         Order.order_status == 'Completed'
+#     ).all()
+
+#     if not completed_orders:
+#         raise HTTPException(status_code=404, detail="No completed orders found for this shipper")
+
+#     return [
+#         CompletedOrderResponse(
+#             order_id=order.order_id,
+#             recipient_id=order.recipient_id,
+#             sending_date=order.sending_date,
+#             receiving_date=order.receiving_date,
+#             order_status=order.order_status
+#         ) for order in completed_orders
+#     ]
+
+
 #tạo order
-@router.post("/", response_model=int)
-def create_order(order: OrderRequest, db: Session = Depends(get_db)):
-    # Conver order to dict and remove the parcel, receiving_locker and sending_locker
-    new_order = order.model_dump(exclude_none=True, exclude_unset=True)
-    parcel = new_order.pop('parcel')
-    sending_locker_id = new_order.pop('sending_locker_id')
-    receiving_locker_id = new_order.pop('receiving_locker_id')
-    # Query the available cell in the sending locker
-    sending_cell = find_available_cell(sending_locker_id, db)
-    change_cell_occupied(sending_cell.cell_id, True, db)
-    receiving_cell = find_available_cell(receiving_locker_id, db)
-    change_cell_occupied(receiving_cell.cell_id, True, db)
-    if not sending_cell or not receiving_cell:
-        raise HTTPException(status_code=400, detail="No available cells in the locker")
-    # Update the order with the cell_id
-    new_order['sending_cell_id'] = sending_cell.cell_id
-    new_order['receiving_cell_id'] = receiving_cell.cell_id
-    new_order = Order(**new_order)
-    db.add(new_order)
-    db.commit()
-    db.refresh(new_order)
-    # After created the order, use the order_id to create the parcel
-    parcel['parcel_id'] = new_order.order_id
-    new_parcel = Parcel(**parcel)
-    db.add(new_parcel)
-    db.commit()
-    # Return the newly created order with the parcel for OrderResponse
-    return new_order.order_id
+@router.post("/", response_model=Token2) 
+def create_order(order: OrderRequest, 
+                 db: Session = Depends(get_db),
+                 current_user: Account = Depends(get_current_user)):
+    try:
+        # Convert order to dict and remove the parcel
+        new_order_data = order.dict(exclude_none=True, exclude_unset=True)
+        parcel_data = new_order_data.pop('parcel')
+        sending_locker_id = new_order_data.pop('sending_locker_id')
+        receiving_locker_id = new_order_data.pop('receiving_locker_id')
+
+        # Determine parcel size based on dimensions and weight
+        size_options = determine_parcel_size(parcel_data['length'], parcel_data['width'], parcel_data['height'], parcel_data['weight'])
+
+        # Query the available cell in the sending locker
+        sending_cell, final_size = find_available_cell(sending_locker_id, size_options, db)
+        if not sending_cell:
+            raise HTTPException(status_code=400, detail="No available cells in the sending locker")
+        
+        logging.debug(f"Found sending cell: {sending_cell.cell_id}")
+        change_cell_occupied(sending_cell.cell_id, True, db)
+  
+       # Query the available cell in the receiving locker
+        receiving_cell, _ = find_available_cell(receiving_locker_id, [final_size], db)
+        if not receiving_cell:
+            # Free up the sending cell if the receiving cell is not available
+            change_cell_occupied(sending_cell.cell_id, False, db)
+            raise HTTPException(status_code=400, detail="No available cells in the receiving locker")
+        
+        logging.debug(f"Found receiving cell: {receiving_cell.cell_id}")
+        change_cell_occupied(receiving_cell.cell_id, True, db)
+        
+        # Get recipient_id based on recipient information
+        recipient_data = order.recipient_id
+        recipient_id = get_user_id_by_recipient_info(db, recipient_data.email, recipient_data.phone, recipient_data.name)
+        
+         # Add sender_id to order data
+        new_order_data['sender_id'] = current_user.user_id
+        new_order_data['recipient_id'] = recipient_id
+
+        # Update the order with the cell IDs
+        new_order_data['sending_cell_id'] = sending_cell.cell_id
+        new_order_data['receiving_cell_id'] = receiving_cell.cell_id
+        new_order = Order(**new_order_data)
+        db.add(new_order)
+        db.commit()
+        db.refresh(new_order)
+
+        # Create the parcel record
+        parcel_data['parcel_size'] = final_size
+        parcel_data['parcel_id'] = new_order.order_id
+        new_parcel = Parcel(**parcel_data)
+        db.add(new_parcel)
+        db.commit()
+
+        # Return the newly created order with the parcel size for OrderResponse
+        return {
+            "order_id": new_order.order_id,
+            "message": 'Successfully created',
+            "parcel_size": final_size,
+            "sender_id": current_user.user_id  
+
+        }
+    except HTTPException as e:
+        db.rollback()
+        raise e
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+#get order by paging
+@router.get("/",response_model=Dict[str, Any])
+async def get_paging_order(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),  # Current page number for lockers
+    per_page: int = Query(10, ge=1),  # Number of lockers per page
+):
+    
+    # Calculate the total number of orders
+    total_orders = db.query(Order).count()
+
+    # Fetch paginated list of orders
+    orders = db.query(Order).offset((page - 1) * per_page).limit(per_page).all()
+    order_responses = []
+    for order in orders:
+        # Fetch sender profile
+        profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
+        parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
+        sending_locker = find_locker_by_cell(order.sending_cell_id, db)
+        receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
+        # Create OrderResponse instance
+        response = OrderResponse(
+            order_id=order.order_id,
+            sender_id=order.sender_id,
+            sender_informations=sender_informations(
+                name = profile.name if profile else "",
+                phone = profile.phone if profile else "",
+                address = profile.address if profile else ""
+            ),
+            recipient_id = order.recipient_id,
+            sending_locker= sending_locker.locker_id,
+            receiving_locker= receiving_locker.locker_id,
+            ordering_date=order.ordering_date,
+            sending_date=order.sending_date,
+            receiving_date=order.receiving_date,
+            order_status=order.order_status,
+            parcel = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size
+    )
+        )
+        order_responses.append(response) 
+    total_pages = (total_orders + per_page - 1) // per_page
+    return {
+        "total": total_orders,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": order_responses
+    }
 
 #GET order bằng parcel_id
 @router.get("/{order_id}", response_model=OrderResponse)
-def get_package(order_id: int, db: Session = Depends(get_db), ):
+def get_order(order_id: int, db: Session = Depends(get_db)):
     query = join_order_parcel_cell(db)
-    query = query.filter(Order.order_id == order_id).first()
-    if not query:
+    order = query.filter(Order.order_id == order_id).first()
+    if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    # Convert the order: Order to a dict and remove the sending_cell_id and receiving_cell_id
-    order = to_dict(query)
-    sending_cell_id = order.pop('sending_cell_id', None)
-    receiving_cell_id = order.pop('receiving_cell_id', None)
-    # Add the sending and receiving locker to the order
-    sending_locker = find_locker_by_cell(sending_cell_id, db)
-    receiving_locker = find_locker_by_cell(receiving_cell_id, db)
-    order['sending_locker'] = to_dict(sending_locker)
-    order['receiving_locker'] = to_dict(receiving_locker)
-    order['parcel'] = to_dict(order['parcel'])
-    return order
+    profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
+    parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
 
-#update order by user_id    
+    # Extract and convert data
+    sending_locker = find_locker_by_cell(order.sending_cell_id, db)
+    receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
+
+    
+    sender_info = sender_informations(
+        name=profile.name if profile else "",
+        phone=profile.phone if profile else "",
+        address=profile.address if profile else ""
+    )
+    
+    parcel_info = ParcelResponse(
+            width = parcel.width,
+            length = parcel.length,
+            height = parcel.height,
+            weight = parcel.weight,
+            parcel_size = parcel.parcel_size
+    )
+    response = OrderResponse(
+        order_id=order.order_id,
+        sender_id=order.sender_id,
+        sender_informations=sender_info,
+        recipient_id=order.recipient_id,
+        sending_locker= sending_locker.locker_id,
+        receiving_locker= receiving_locker.locker_id,
+        ordering_date=order.ordering_date,
+        sending_date=order.sending_date,
+        receiving_date=order.receiving_date,
+        order_status=order.order_status,
+        parcel = parcel_info
+    )
+    
+    return response
+#update order by parcel_id    
 @router.put("/{parcel_id}", response_model=OrderRequest)
 def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
@@ -193,19 +439,24 @@ def update_package(parcel_id: int, _package: OrderRequest, db: Session = Depends
 
 
 #delete order bằng parcel_id
-@router.delete("/{parcel_id}", response_model=OrderRequest)
-def delete_package(parcel_id: int, db: Session = Depends(get_db)):
-    package_delete = db.query(Order).filter(Order.order_id == parcel_id).first()
+@router.delete("/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    order_delete = db.query(Order).filter(Order.order_id == order_id).first()
     #nếu order không được tìm thấy thì là not found
-    if not package_delete:
+    if not order_delete:
         raise HTTPException(status_code=404, detail="Order not found")
     #nếu xóa rồi mà quên xong xóa thêm lần nữa thì hiện ra là k tồn tại
-    if package_delete == None:
+    if order_delete == None:
         raise HTTPException(status_code=404, detail="Order not exist")
-
-    db.delete(package_delete)
+    parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
+    if parcel_to_delete:
+        db.delete(parcel_to_delete)
+    db.delete(order_delete)
     db.commit()
-    return package_delete
+    
+    return {
+        "Message": "Order and parcel deleted"
+    }
 
 # Get cell
 @router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
@@ -214,3 +465,63 @@ def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
     if not package:
         raise HTTPException(status_code=404, detail="Order not found")
     return package
+
+
+
+
+#Update receving_date and sending_date
+@router.put("/receving_date")
+def update_package(order_id : int , recive_date: date, db: Session = Depends(get_db)):
+
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    # Check if order exists
+    # If not, raise an error
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.receiving_date = recive_date
+    db.commit()
+    db.refresh(order)  # Refresh to get the updated order details
+    return {
+        "Message": "Receiving date updated",
+        "order_id": order_id,
+        "receiving_date": order.receiving_date
+    }
+    
+@router.put("/sending_date")
+def update_package(order_id : int , send_date: date, db: Session = Depends(get_db)):
+
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    # Check if order exists
+    # If not, raise an error
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.sending_date = send_date
+    db.commit()
+    db.refresh(order)  # Refresh to get the updated order details
+    return {
+        "Message": "Sending date updated",
+        "order_id": order_id,
+        "sending_date": order.sending_date
+    }
+    
+
+
+@router.put("/order/{order_id}/status")
+def update_order_status(order_id: int, status_request: UpdateOrderStatusRequest, db: Session = Depends(get_db)):
+    # Find the order in the database
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    # Update the order status
+    order.order_status = status_request.status
+
+    # Commit the changes to the database
+    db.commit()
+    db.refresh(order)
+    
+    return {
+        "Message": "Status updated",
+        "order_id": order_id,
+        "current status:": status_request.status
+    }
