@@ -97,6 +97,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_role_role_id'), 'role', ['role_id'], unique=False)
     # ### end Alembic commands ###
+    
 
 
 def downgrade() -> None:

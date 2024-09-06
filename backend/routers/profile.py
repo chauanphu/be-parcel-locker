@@ -7,6 +7,7 @@ from database.session import get_db
 # from models.user import User
 from models.order import Order
 from models.profile import Profile
+from models.account import Account
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List, Optional
 from auth.utils import get_current_user, authenticate_user, bcrypt_context
@@ -44,10 +45,10 @@ public_router = APIRouter(
     prefix="/profile",
     tags=["profile"]
 )
-shipper_router = APIRouter(
-    prefix="/shipper",
-    tags=["shipper"]
-)  
+# shipper_router = APIRouter(
+#     prefix="/shipper",
+#     tags=["shipper"]
+# )  
 
 conf = ConnectionConfig(
     MAIL_USERNAME=MAIL_USERNAME,
@@ -96,7 +97,7 @@ class RegisterUserRequest(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     name: str = Field(None, max_length=50)
-    gender: str = Field(None, max_length=20)
+    gender: str = Field('Prefer not to respond', max_length=50)
     age: int = Field(None, ge=0)
     phone: str = Field(None, max_length=15)
     address: str = Field(None, max_length=255)
@@ -153,7 +154,7 @@ def get_paging_users(
         }
     
 # A PUT REQUEST TO UPDATE USER
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}")
 def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
     user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
@@ -163,17 +164,19 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     address = _user.address
     address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
     user_data['address'] = address_string
-    user = db.query(Profile).filter(Profile.user_id == user_id).update(user_data)
+    user = db.query(Account).filter(Account.user_id == user_id).first()
+    profile = db.query(Profile).filter(Profile.user_id == user.user_id).update(user_data)    
     # Check if user exists
     # If not, raise an error
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     db.commit()
-    return user
+    return {"message": "Profile updated successfully",
+            "profile_id": profile}
 
 #put request to update profile user 
-@router.put("/{user_id}", status_code=status.HTTP_200_OK)
+@router.put("/{user_id}/test") 
 async def update_profile(user_id: int, update_request: UpdateProfileRequest, db: Session = Depends(get_db)):
     # Retrieve the user's profile
     profile = db.query(Profile).filter(Profile.user_id == user_id).first()
@@ -197,4 +200,27 @@ async def update_profile(user_id: int, update_request: UpdateProfileRequest, db:
     
     return {"message": "Profile updated successfully", "profile": profile}
 
+
+
+
+
+@router.post("{user_id}/create_profile")
+async def create_profile(user_id : int, _user: UpdateProfileRequest, db: Session = Depends(get_db)):
+    
+    #Find the profile
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    
+    if profile is not None:
+        return {"message": "The profile has already been created, please update not create"}
+    else:
+        profile = Profile(
+            user_id=user_id,
+            phone = _user.phone,
+            address = _user.address
+        )
+        
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+        
 

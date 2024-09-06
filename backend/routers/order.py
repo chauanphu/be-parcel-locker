@@ -197,9 +197,9 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     user = db.query(Account).filter(Account.email == email).first()
     
     if user is None:
-        rec = db.query(Recipient).filter(Recipient.email == email).first()
-        if rec is None:
-            #Make recipients_id become the next user_id 
+        recipient_query = db.query(Recipient).filter(Recipient.phone == phone).first()
+        if recipient_query is None:
+            #Then the profile_id of the recipient is null and save a new recipient
             recipient = Recipient(
                 name = name,
                 phone = phone, 
@@ -209,8 +209,19 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
             db.commit()
             return recipient.recipient_id
         else:
-            return rec.recipient_id
-    return user.user_id
+            return recipient_query.recipient_id
+        
+    #if the user already in the database, create a recipient with that user_id 
+    profile = db.query(Profile).filter(Profile.user_id == user.user_id).first()
+    user_recipient = Recipient(
+        name = profile.name,
+        phone = profile.phone,
+        email = user.email,
+        profile_id = profile.user_id
+    )
+    db.add(user_recipient)
+    db.commit()
+    return user_recipient.recipient_id
 
 # #filter by shipper_id to get the completed order
 # @router.get("/shippers/{shipper_id}/completed-orders", response_model=List[CompletedOrderResponse])
