@@ -11,7 +11,7 @@ class Profile(Base):
     user_id = Column(Integer, ForeignKey('account.user_id'), primary_key=True, index=True, autoincrement=True)
     name = Column(String)
     # email = Column(String, nullable=False, unique=True)
-    gender = Column(Enum('Male', 'Female', 'Prefer not to respond', name='gender'))
+    gender = Column(Enum('Male', 'Female', 'Prefer not to respond', name='gender_profile'))
     # status = Column(Enum('Active','Inactive', 'Blocked', name='account_status'), nullable=False,default='Active')
     # Date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
     age = Column(Integer)

@@ -11,6 +11,6 @@ class Recipient(Base):
     phone = Column(String, nullable=False)
     email = Column(String, nullable=False)
     address = Column(String, nullable=True)
-    gender = Column(Enum('Male', 'Female', 'Prefer not to respond', name='gender'))
+    gender = Column(Enum('Male', 'Female', 'Prefer not to respond', name='gender_recipient'))
     
 print("Recipient model created successfully.")
