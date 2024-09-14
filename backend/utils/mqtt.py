@@ -5,7 +5,7 @@ class MQTTClient(mqtt.Client):
     port: int
 
     def __init__(self, host=None, port=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(mqtt.CallbackAPIVersion.VERSION2, transport="websockets")
         self.tls_set()
         # GET MQTT_HOST_NAME FROM ENVIRONMENT VARIABLE
         if host is None or port is None:
@@ -13,8 +13,11 @@ class MQTTClient(mqtt.Client):
         self.host = host
         self.port = 443
 
-    def on_connect(self, client, userdata, flags, rc):
+    def on_connect(self, client, userdata, flags, rc, properties):
         print("Connected with result code "+str(rc))
+
+    def on_publish(self, client, userdata, mid):
+        print("Published message", mid)
 
     def connect(self):
         if self.host is None or self.port is None:

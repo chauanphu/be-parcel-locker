@@ -6,5 +6,5 @@ MQTT_PORT = config("MQTT_PORT")
 
 mqtt_client = MQTTClient(host=MQTT_HOST_NAME, port=MQTT_PORT)
 mqtt_client.connect()
-
+mqtt_client.loop_start()
 locker_client = LockerClient(mqtt_client)
