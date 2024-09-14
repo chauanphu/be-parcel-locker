@@ -466,9 +466,6 @@ def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Order not found")
     return package
 
-
-
-
 #Update receving_date and sending_date
 @router.put("/receving_date")
 def update_package(order_id : int , recive_date: date, db: Session = Depends(get_db)):
@@ -504,8 +501,6 @@ def update_package(order_id : int , send_date: date, db: Session = Depends(get_d
         "sending_date": order.sending_date
     }
     
-
-
 @router.put("/order/{order_id}/status")
 def update_order_status(order_id: int, status_request: UpdateOrderStatusRequest, db: Session = Depends(get_db)):
     # Find the order in the database
