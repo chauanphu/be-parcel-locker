@@ -14,7 +14,9 @@ services:
     depends_on:
       - db
     environment:
-      - DB_STRING=postgresql://admin:123123@db:5432/parcel 
+      - DB_STRING=postgresql://admin:123123@db:5432/parcel
+      - MQTT_HOST_NAME=broker.captechvn.com
+      - MQTT_PORT=443 
   db:
     image: postgres:16.1-alpine3.19
     ports:
