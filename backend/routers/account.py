@@ -68,9 +68,6 @@ class Address(BaseModel):
 class CreateUserRequest(BaseModel):
     email: str
     username: str
-    name: str
-    address: Address
-    phone: str
     password: str
 
 class UserResponse(BaseModel):
@@ -192,6 +189,15 @@ pending_users = {} # For pending users
 
 #to create a new account
 #@router.push()
+
+@router.post("/create_account", response_model=CreateUserRequest)
+async def create_account(account: CreateUserRequest, db: Session = Depends(get_db)):
+    new_account = Account(**account.model_dump())
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return new_account
+
 
 @router.delete("/delete_account_for_current_user")
 async def delete_account_user(db: Session = Depends(get_db),
