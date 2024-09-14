@@ -251,73 +251,7 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
         "Message": "Locker deleted sucessfully"
     }
 
-@router.put("/{locker_id}/cell")
-async def update_cell_to_false(locker_id: int, db: Session = Depends(get_db)):
-    # Update locker status, allow partial update
-    db_locker = db.query(Cell).filter(Cell.locker_id == locker_id).all()
-    # If not found, raise 404
-    if not db_locker:
-        raise HTTPException(status_code=404, detail="Locker not found")
-    db.query(Cell).filter(Cell.locker_id == locker_id).update({Cell.occupied: False})
-    db.commit()
-    # Return 200 OK
-    return {
-        "Message": "All cell occupied successfully updated to false"
-    }
     
-@router.put("/{order_id}/update sending cell occupied to False")
-async def update_cell_to_false(order_id: int, db: Session = Depends(get_db)):
-    # Get the order by order_id
-    db_order = db.query(Order).filter(Order.order_id == order_id).first()
-    # If not found, raise 404
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    # Get the sending cell and update its occupied status to False
-    sending_cell_id = db_order.sending_cell_id
-    db_cell = db.query(Cell).filter(Cell.cell_id == sending_cell_id).first()
-    
-    # If the sending cell is not found, raise 404
-    if not db_cell:
-        raise HTTPException(status_code=404, detail="Sending cell not found")
-    if db_cell.occupied == False:
-        return {
-             "Message": "the sending cell is already occupied false"
-        }
-    db_cell.occupied = False
-    db.commit()
-    
-    # Return 200 OK
-    return {
-        "Message": f"Sending cell occupied of order_id: {order_id} successfully updated to false"
-    }
-    
-@router.put("/{order_id}/update receiving cell occupied to False")
-async def update_cell_to_false(order_id: int, db: Session = Depends(get_db)):
-    # Get the order by order_id
-    db_order = db.query(Order).filter(Order.order_id == order_id).first()
-    # If not found, raise 404
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    # Get the receiving cell and update its occupied status to False
-    receiving_cell_id = db_order.receiving_cell_id
-    db_cell = db.query(Cell).filter(Cell.cell_id == receiving_cell_id).first()
-    
-    # If the receiving cell is not found, raise 404
-    if not db_cell:
-        raise HTTPException(status_code=404, detail="Receiving cell not found")
-    if db_cell.occupied == False:
-        return {
-             "Message": "the receiving cell is already occupied false"
-        }
-    db_cell.occupied = False
-    db.commit()
-    
-    # Return 200 OK
-    return {
-        "Message":  f"Receiving cell occupied of order_id: {order_id} successfully updated to false"
-    }
 
 # Get density of occupied cells by locker_id
 @router.get("/{locker_id}, {size}/density", response_model=DensityResponse)
@@ -350,9 +284,4 @@ def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
         density = density,
         density_status = density_status
     )
-    
-    
-# @router2.get("/test")
-# def test_server():
-#     return "Server is running, test successful"
     
