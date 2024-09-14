@@ -21,10 +21,6 @@ import random
 SECRET_KEY= config("SECRET_KEY")
 ALGORITHM = config("algorithm", default="HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 10
-MAIL_USERNAME = config("MAIL_USERNAME")
-MAIL_PASSWORD = config("MAIL_PASSWORD")
-MAIL_FROM = config("MAIL_FROM")
-
 
 class StatusEnum(str, Enum):
     Active = 'Active'
@@ -49,18 +45,6 @@ public_router = APIRouter(
 #     prefix="/shipper",
 #     tags=["shipper"]
 # )    
-
-conf = ConnectionConfig(
-    MAIL_USERNAME=MAIL_USERNAME,
-    MAIL_PASSWORD=MAIL_PASSWORD,
-    MAIL_FROM=MAIL_FROM,
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.gmail.com",
-    MAIL_STARTTLS = True,
-    MAIL_SSL_TLS = False,
-    USE_CREDENTIALS = True,
-    VALIDATE_CERTS = True
-)
 
 class Address(BaseModel):
     address_number: str

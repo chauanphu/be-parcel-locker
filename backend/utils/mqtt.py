@@ -1,4 +1,5 @@
 import paho.mqtt.client as mqtt
+from decouple import config
 
 class MQTTClient(mqtt.Client):
     host: str
@@ -36,3 +37,10 @@ class LockerClient:
     def unlock(self, locker_id: int, cell_id: int):
         self.mqtt_client.publish(f"locker/{locker_id}/cell/{cell_id}", "unlock")
     
+MQTT_HOST_NAME = config("MQTT_HOST_NAME")
+MQTT_PORT = config("MQTT_PORT")
+
+mqtt_client = MQTTClient(host=MQTT_HOST_NAME, port=MQTT_PORT)
+mqtt_client.connect()
+mqtt_client.loop_start()
+locker_client = LockerClient(mqtt_client)
