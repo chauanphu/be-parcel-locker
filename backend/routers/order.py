@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from auth.utils import get_current_user
 from sqlalchemy.orm import Session, joinedload
-# from models.user import User
 from models.account import Account
 from models.recipient import Recipient
 from database.session import get_db

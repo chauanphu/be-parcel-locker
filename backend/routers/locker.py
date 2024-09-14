@@ -1,7 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func
 from database.session import get_db
 from models.locker import Locker, Cell
 from models.order import Order
@@ -82,9 +81,6 @@ class DensityResponse(BaseModel):
     density: float
     density_status: str
 
-# @router.get("/", response_model=List[LockerResponse])
-# async def get_lockers(db: Session = Depends(get_db)):
-#     return db.query(Locker).all()
 
 @router2.get("/", response_model=Dict[str, Any])
 async def get_lockers_by_paging(

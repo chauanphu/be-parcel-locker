@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends,Query
 from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
-# from models.user import User
 from models.profile import Profile
 from models.account import Account
 from sqlalchemy.orm import Session
