@@ -11,7 +11,6 @@ from auth.utils import get_current_user, authenticate_user, bcrypt_context
 from starlette import status
 from enum import Enum
 from jose import JWTError, jwt
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from decouple import config
 import random
 
