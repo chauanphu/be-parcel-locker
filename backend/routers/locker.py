@@ -16,6 +16,9 @@ class SizeEnum(str, Enum):
     S = 'S'
     M = 'M'
     L = 'L'
+class DensityEnum(str, Enum):
+    Full = 100
+    Busy = 70
     
 class LockerStatusEnum(str, Enum):
     Active = 'Active'
@@ -250,7 +253,7 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
     
 
 # Get density of occupied cells by locker_id
-@router.get("/{locker_id}, {size}/density", response_model=DensityResponse)
+@router.get("/{locker_id}/size/{size}/density", response_model=DensityResponse)
 def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
     
     # Get all cells in size in the locker
@@ -266,9 +269,9 @@ def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
     # Calculate the density of occupied cells
     density = round((occupied_cells_count / all_cells_count), 2) * 100
     
-    if density == 100:
+    if density == int(DensityEnum.Full.value):
         density_status = "Full"
-    elif density >= 70:
+    elif density >= int(DensityEnum.Busy.value):
         density_status = "Busy"
     else:
         density_status = "Free"
