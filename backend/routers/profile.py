@@ -132,7 +132,7 @@ def get_paging_users(
         }
     
 # A PUT REQUEST TO UPDATE USER
-@router.put("/{user_id}")
+@router.put("/{user_id}/update_account")
 def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
     user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
@@ -154,7 +154,7 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
             "profile_id": profile}
 
 #put request to update profile user 
-@router.put("/{user_id}/test") 
+@router.put("/{user_id}/update_profile") 
 async def update_profile(user_id: int, update_request: UpdateProfileRequest, db: Session = Depends(get_db)):
     # Retrieve the user's profile
     profile = db.query(Profile).filter(Profile.user_id == user_id).first()
@@ -181,24 +181,4 @@ async def update_profile(user_id: int, update_request: UpdateProfileRequest, db:
 
 
 
-
-@router.post("{user_id}/create_profile")
-async def create_profile(user_id : int, _user: UpdateProfileRequest, db: Session = Depends(get_db)):
-    
-    #Find the profile
-    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
-    
-    if profile is not None:
-        return {"message": "The profile has already been created, please update not create"}
-    else:
-        profile = Profile(
-            user_id=user_id,
-            phone = _user.phone,
-            address = _user.address
-        )
-        
-    db.add(profile)
-    db.commit()
-    db.refresh(profile)
-        
 
