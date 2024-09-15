@@ -79,7 +79,9 @@ def auth_headers():
     # Create a token using your `create_access_token` function
     token = create_access_token(username=ADMIN_USERNAME, expires_delta=timedelta(minutes=20))
     return {"Authorization": f"Bearer {token}"}
-
+# @pytest.fixture
+# def mock_current_user():
+#     return get_current_user()
 # Additional tests can be added here
 
 
