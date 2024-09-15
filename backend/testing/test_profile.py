@@ -84,13 +84,18 @@ def test_update_user():
 def test_update_profile():
     """Test the PUT /profile/{user_id} endpoint to update profile."""
     update_request = {
-        "name": "Updated Name",
-        "gender": "Female",
-        "age": 25,
-        "phone": "999999999",
-        "address": "Updated Address"
+        "name": "string",
+        "address": {
+            "address_number": "string",
+            "street": "string",
+            "ward": "string",
+            "district": "string"
+        },
+        "phone": "string",
+        "gender": "Male",
+        "age": 0
     }
-    response = client.put(f"/profile/{test_user_id}", json=update_request)
+    response = client.put(f"/api/v1/profile/2/update_profile", json=update_request)
     assert response.status_code == 200
     data = response.json()
     assert data["message"] == "Profile updated successfully"
