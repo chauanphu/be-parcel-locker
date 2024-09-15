@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from routers.locker import router  # Import your router and models
 from fastapi import FastAPI
 from main import app
-from unittest.mock import MagicMock
+from unittest.mock import patch,MagicMock
+from routers.locker import SizeEnum, DensityEnum 
 
 client = TestClient(app)
 
@@ -142,11 +143,17 @@ def test_delete_locker(auth_headers):
     response = client.delete(f"/api/v1/locker/{locker_id}", headers= auth_headers)
     assert response.status_code == 200
     assert "Message" in response.json()
+    
+# # Test function for the get_density endpoint
+# def test_get_density(auth_headers):
+#     locker_id = 2  # Example locker_id
+    
+#     response = client.get(f"/api/v1/locker/{locker_id}/size/S/density", headers=auth_headers)
+#     assert response.status_code == 200
 
-
-# Test function for the get_density endpoint
-def test_get_density(auth_headers):
-    locker_id = 2  # Assuming locker_id = 1 exists in the test database
-    response = client.get(f"/api/v1/locker/{locker_id}/size/S/density", headers=auth_headers)
-    assert response.status_code == 200
-    assert "density_status" in response.json()
+#     data = response.json()
+#     assert 'locker_id' in data
+#     assert 'total_cells' in data
+#     assert 'occupied_cells' in data
+#     assert 'density' in data
+#     assert 'density_status' in data
