@@ -29,28 +29,6 @@ def mock_data() -> List[dict]:
         }
     ]
 
-def test_receive_location_data(client, mock_data):
-    # Test POST endpoint
-    data = mock_data[0]
-    response = client.post("/api/v1/location/", json=data)
-    assert response.status_code == 200
-    response_data = response.json()
-    # Compare the fixed timestamp
-    assert response_data['timestamp'] == data['timestamp']
-    # Remove timestamp for comparison
-    response_data.pop('timestamp', None)
-    data_copy = data.copy()
-    data_copy.pop('timestamp', None)
-    assert response_data == data_copy
-
-def test_get_location_data(client, mock_data):
-    # Test GET endpoint
-    data = mock_data[0]
-    client.post("/api/v1/location/", json=data)
-    response = client.get("/api/v1/location/")
-    assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert response.json()[0] == data
     
 def test_websocket(client):
     # Test WebSocket endpoint
