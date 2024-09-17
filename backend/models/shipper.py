@@ -14,5 +14,5 @@ class Shipper(Base):
     age = Column(Integer)
     phone = Column(String, nullable = False)
     address = Column(String, nullable = False)
-    #có cần email hong zạ
+
 print("Shipper model created successfully.")

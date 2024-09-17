@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta
-from sqlalchemy import DateTime
 from fastapi import APIRouter, HTTPException, Depends,Query
 from pydantic import BaseModel, EmailStr, Field
 from models.account import Account
@@ -8,12 +6,10 @@ from models.shipper import Shipper
 from models.order import Order
 from models.locker import Locker, Cell
 from sqlalchemy.orm import Session
-from typing import Any, Dict, List, Optional
-from auth.utils import get_current_user, authenticate_user, bcrypt_context
+from typing import Any, Dict, Optional
+from auth.utils import get_current_user, bcrypt_context
 from starlette import status
-from enum import Enum
-from uuid import UUID
-from decouple import config
+
 
 router = APIRouter(
     prefix="/shipper",

@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from auth.utils import get_current_user
 from sqlalchemy.orm import Session, joinedload
-# from models.user import User
 from models.account import Account
 from models.recipient import Recipient
 from database.session import get_db
@@ -468,58 +467,3 @@ def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
     if not package:
         raise HTTPException(status_code=404, detail="Order not found")
     return package
-
-#Update receving_date and sending_date
-@router.put("/receving_date")
-def update_package(order_id : int , recive_date: date, db: Session = Depends(get_db)):
-
-    order = db.query(Order).filter(Order.order_id == order_id).first()
-    # Check if order exists
-    # If not, raise an error
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    order.receiving_date = recive_date
-    db.commit()
-    db.refresh(order)  # Refresh to get the updated order details
-    return {
-        "Message": "Receiving date updated",
-        "order_id": order_id,
-        "receiving_date": order.receiving_date
-    }
-    
-@router.put("/sending_date")
-def update_package(order_id : int , send_date: date, db: Session = Depends(get_db)):
-
-    order = db.query(Order).filter(Order.order_id == order_id).first()
-    # Check if order exists
-    # If not, raise an error
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    order.sending_date = send_date
-    db.commit()
-    db.refresh(order)  # Refresh to get the updated order details
-    return {
-        "Message": "Sending date updated",
-        "order_id": order_id,
-        "sending_date": order.sending_date
-    }
-    
-@router.put("/order/{order_id}/status")
-def update_order_status(order_id: int, status_request: UpdateOrderStatusRequest, db: Session = Depends(get_db)):
-    # Find the order in the database
-    order = db.query(Order).filter(Order.order_id == order_id).first()
-    
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    # Update the order status
-    order.order_status = status_request.status
-
-    # Commit the changes to the database
-    db.commit()
-    db.refresh(order)
-    
-    return {
-        "Message": "Status updated",
-        "order_id": order_id,
-        "current status:": status_request.status
-    }
