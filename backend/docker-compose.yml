@@ -13,6 +13,7 @@ services:
       - .:/app
     depends_on:
       - db
+      - redis
     environment:
       - DB_STRING=postgresql://admin:123123@db:5432/parcel
       - MQTT_HOST_NAME=broker.captechvn.com
@@ -37,3 +38,9 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin123
     depends_on:
       - db
+
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+    restart: always

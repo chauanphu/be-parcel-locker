@@ -1,5 +1,6 @@
 from datetime import date
 import logging
+import random
 from typing import Any, Dict, List, Optional
 import uuid
 from fastapi import APIRouter, Depends, Query
@@ -15,7 +16,8 @@ from models.order import Order
 from routers.parcel import ParcelRequest, Parcel 
 from models.profile import Profile
 
-from utils.__init__ import locker_client
+from utils.mqtt import locker_client
+from utils.redis import redis_client
 
 from enum import Enum
 
@@ -290,7 +292,7 @@ def create_order(order: OrderRequest,
         raise HTTPException(status_code=500, detail=str(e))
 
 # Handling cell unlock by POST request
-@router.post("/unlock")
+@router.post("/generate_qr")
 def unlock_cell(order_id: int, db: Session = Depends(get_db)):
     # Find the order_id
     order = db.query(Order).filter(Order.order_id == order_id).first()
@@ -299,30 +301,29 @@ def unlock_cell(order_id: int, db: Session = Depends(get_db)):
     # Find the locker_id
     locker_id = find_locker_by_cell(order.sending_cell_id, db).locker_id
     # Generate OTP code
-    otp = 123456
+    otp = random.randint(100000, 999999)
+    redis_client.setex(f"otp:{order_id}", 300, otp)
     # TODO sending QR code to unlock the cell
     locker_client.print_qr(locker_id, order_id, code=otp)
-    # Cache the order_id and otp code into redis
-    # redis.set(order_id, otp)
 
     db.commit()
-    return {
-        "Message": "Scan the QR code",
-    }
+    return {"message": "QR code generated successfully"}
 
-@router.post("verify")
-def verify_order(order_id: int, otp: str, db: Session = Depends(get_db)):
+@router.post("verify_qr")
+def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
     # Find the order_id
     order = db.query(Order).filter(Order.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     # Get the OTP code from redis
-    # cached_otp = redis.get(order_id)
-    # if cached_otp != otp:
-    #     raise HTTPException(status_code=400, detail="Invalid OTP code")
-    return {
-        "Message": "Order verified",
-    }
+    stored_otp = redis_client.get(f"otp:{order_id}")
+    if not stored_otp:
+        raise HTTPException(status_code=400, detail="OTP code not found or expired")
+    if int(stored_otp) != otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
+    # Remove the OTP code from redis
+    redis_client.delete(f"otp:{order_id}")
+    return {"message": "OTP verified successfully"}
 
 #get order by paging
 @router.get("/",response_model=Dict[str, Any])
