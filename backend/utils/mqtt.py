@@ -1,3 +1,4 @@
+from enum import Enum
 import paho.mqtt.client as mqtt
 from decouple import config
 
@@ -26,16 +27,27 @@ class MQTTClient(mqtt.Client):
         print(f"Connecting to {self.host}:{self.port}")
         super().connect(self.host, self.port, 60)
 
+class Request(Enum):
+    PRINT_QR = "print_qr"
+    UNLOCK = "open"
+
 class LockerClient:
     def __init__(self, mqtt_client: MQTTClient):
         self.mqtt_client = mqtt_client
 
     def print_qr(self, locker_id: int, order_id: int, code: str):
-        payload = f"{order_id},{code}"
+        payload = {
+            "request": Request.PRINT_QR.value,
+            "order_id": order_id,
+            "OTP": code
+        }
         self.mqtt_client.publish(f"locker/{locker_id}", payload)
 
     def unlock(self, locker_id: int, cell_id: int):
-        self.mqtt_client.publish(f"locker/{locker_id}/cell/{cell_id}", "unlock")
+        payload = {
+            "request": Request.UNLOCK.value,
+        }
+        self.mqtt_client.publish(f"locker/{locker_id}/cell/{cell_id}", payload)
     
 MQTT_HOST_NAME = config("MQTT_HOST_NAME")
 MQTT_PORT = config("MQTT_PORT")
