@@ -154,24 +154,6 @@ def find_locker_by_cell(cell_id: uuid, db: Session = Depends(get_db)):
     query = db.query(Locker).filter(Locker.cells.any(Cell.cell_id == cell_id)).first()
     return query
 
-def replace_cell_with_locer(order: Order, db: Session = Depends(get_db)):
-    """
-    Replaces the sending and receiving cell IDs in the order with the sending and receiving locker IDs.
-
-    Parameters:
-    - order (Order): The order to update.
-    - db (Session): The database session to use for the query.
-
-    Returns:
-    - Order: The updated order.
-    """
-    query = db.query(Order).filter(Order.order_id == order.order_id).first()
-    sending_locker = find_locker_by_cell(order.sending_cell_id, db)
-    receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
-    order.sending_locker_id = sending_locker.locker_id
-    order.receiving_locker_id = receiving_locker.locker_id
-    return order
-
 def to_dict(model_instance):
     data = model_instance.__dict__.copy()
     data.pop('_sa_instance_state', None)
