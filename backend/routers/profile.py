@@ -78,13 +78,13 @@ class UpdateProfileRequest(BaseModel):
 #     role: int = 3
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Session = Depends(get_db), ):
+def get_profile(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(Profile).filter(Profile.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User profile not found")
     return user
 
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/get_users", response_model=Dict[str, Any])
 def get_paging_users(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -122,7 +122,7 @@ def get_paging_users(
         }
     
 # A PUT REQUEST TO UPDATE USER
-@router.put("/{user_id}/update_profile")
+@router.put("/{user_id}/update")
 def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
     user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
