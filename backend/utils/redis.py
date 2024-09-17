@@ -10,6 +10,6 @@ redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_
 try:
     redis_client.ping()
     print('Redis connection success')
-except redis.exceptions.ConnectionError:
-    print('Redis connection error')
+except redis.exceptions.ConnectionError as e:
+    print('Redis connection error', e)
     exit(1)

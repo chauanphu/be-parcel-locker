@@ -1,6 +1,7 @@
 from enum import Enum
 import paho.mqtt.client as mqtt
 from decouple import config
+import json
 
 class MQTTClient(mqtt.Client):
     host: str
@@ -18,8 +19,8 @@ class MQTTClient(mqtt.Client):
     def on_connect(self, client, userdata, flags, rc, properties):
         print("Connected with result code "+str(rc))
 
-    def on_publish(self, client, userdata, mid):
-        print("Published message", mid)
+    # def on_publish(self, client, userdata, mid):
+    #     print("Published message", mid)
 
     def connect(self):
         if self.host is None or self.port is None:
@@ -41,12 +42,15 @@ class LockerClient:
             "order_id": order_id,
             "OTP": code
         }
+        # Encode the payload as a JSON string
+        payload = json.dumps(payload)
         self.mqtt_client.publish(f"locker/{locker_id}", payload)
 
     def unlock(self, locker_id: int, cell_id: int):
         payload = {
             "request": Request.UNLOCK.value,
         }
+        payload = json.dumps(payload)
         self.mqtt_client.publish(f"locker/{locker_id}/cell/{cell_id}", payload)
     
 MQTT_HOST_NAME = config("MQTT_HOST_NAME")
