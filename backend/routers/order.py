@@ -20,8 +20,8 @@ from utils.__init__ import locker_client
 from enum import Enum
 
 router = APIRouter(
-    prefix="/order",
-    tags=["order"],
+    prefix="/orders",
+    tags=["orders"],
     dependencies=[Depends(get_current_user)]
 )
 
@@ -61,6 +61,10 @@ class OrderRequest(BaseModel):
     sending_locker_id: Optional[int]
     receiving_locker_id: Optional[int]
     
+class OrderCellResponse(BaseModel):
+    sending_cell_id: Optional[int]
+    receiving_cell_id: Optional[int]
+    
 class sender_informations(BaseModel):
     name : Optional[str]
     phone : Optional[str]
@@ -92,6 +96,13 @@ class CompletedOrderResponse(BaseModel):
     sending_date: Optional[date]
     receiving_date: Optional[date]
     order_status: str
+
+class OrderUpdate(BaseModel):
+    order_id: int
+    sending_date: Optional[date] = None   # Defaults to None
+    receiving_date: Optional[date] = None # Defaults to None
+    order_status: OrderStatusEnum = OrderStatusEnum.Ongoing  # Defaults to 'Ongoing'
+    warnings: bool = False  
 
 # Return all order along with their parcel and locker
 def join_order_parcel_cell(db: Session = Depends(get_db)):
@@ -219,7 +230,7 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     return user_recipient.recipient_id
 
 #tạo order
-@router.post("/", response_model=Token2) 
+@router.post("/create_order", response_model=Token2) 
 def create_order(order: OrderRequest, 
                  db: Session = Depends(get_db),
                  current_user: Account = Depends(get_current_user)):
@@ -325,7 +336,7 @@ def verify_order(order_id: int, otp: str, db: Session = Depends(get_db)):
     }
 
 #get order by paging
-@router.get("/",response_model=Dict[str, Any])
+@router.get("/get_all_orders",response_model=Dict[str, Any])
 async def get_paging_order(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
@@ -423,21 +434,21 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     return response
 
 #update order by parcel_id    
-@router.patch("/{order_id}", response_model=OrderRequest)
-def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
+@router.patch("/{order_id}")
+def update_order(_package: OrderUpdate, db: Session = Depends(get_db)):
     # Allow for partial updates
-    package_put = db.query(Order).filter(Order.order_id == order_id).update(
+    order_put = db.query(Order).filter(Order.order_id == _package.order_id).update(
         _package.model_dump(
             exclude_unset=True, 
             exclude_none=True
         ))
     # Check if order exists
     # If not, raise an error
-    if not package_put:
+    if not order_put:
         raise HTTPException(status_code=404, detail="Order not found")
     
     db.commit()
-    return package_put
+    return {f"successfully updated order {_package.order_id}"}
 
 #delete order bằng parcel_id
 @router.delete("/{order_id}")
@@ -459,10 +470,10 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
         "Message": "Order and parcel deleted"
     }
 
-# Get cell
-@router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
-def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
-    package = db.query(Order).filter(Order.locker_id == locker_id).filter(Order.parcel_id == parcel_id).first()
-    if not package:
+#this to get the order_cell
+@router.get("/{order_id}/cell", response_model=OrderCellResponse)
+def get_cell(order_id: int, db: Session = Depends(get_db)):
+    cell = db.query(Order).filter(Order.order_id == order_id).first()
+    if not cell:
         raise HTTPException(status_code=404, detail="Order not found")
-    return package
+    return cell
