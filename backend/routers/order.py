@@ -257,6 +257,21 @@ def create_order(order: OrderRequest,
         new_parcel = Parcel(**parcel_data)
         db.add(new_parcel)
         db.commit()
+        
+        # Convert cell_id to string for Redis
+        order_id = str(new_order.order_id)
+        sending_cell_id = str(sending_cell.cell_id)
+        receiving_cell_id = str(receiving_cell.cell_id)
+        receiving_locker_id = str(receiving_locker_id)
+        sending_locker_id = str(sending_locker_id)
+
+        # Save the order data to Redis
+        redis_client.hmset(f"order:{order_id}", {
+            "sending_locker_id": sending_locker_id,
+            "receiving_locker_id": receiving_locker_id,
+            "sending_cell_id": sending_cell_id,
+            "receiving_cell_id": receiving_cell_id
+        })
 
         # Return the newly created order with the parcel size for OrderResponse
         return {
@@ -275,26 +290,27 @@ def create_order(order: OrderRequest,
 
 # Handling cell unlock by POST request
 @router.post("/generate_qr")
-def unlock_cell(order_id: int, db: Session = Depends(get_db)):
+def unlock_cell(order_id: int, db: Session = Depends(get_db)):  
     # Find the order_id
-    order = db.query(Order).filter(Order.order_id == order_id).first()
+    order = redis_client.hgetall(f"order:{order_id}")
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     # Find the locker_id
-    locker_id = find_locker_by_cell(order.sending_cell_id, db).locker_id
+    locker_id = order.get("sending_locker_id")
     # Generate OTP code
     otp = random.randint(100000, 999999)
     redis_client.setex(f"otp:{order_id}", 300, otp)
     # TODO sending QR code to unlock the cell
     locker_client.print_qr(locker_id, order_id, code=otp)
-
     db.commit()
     return {"message": "QR code generated successfully"}
 
-@router.post("verify_qr")
+@router.post("/verify_qr")
 def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
-    # Find the order_id
-    order = db.query(Order).filter(Order.order_id == order_id).first()
+    # Find the order_id in the redis
+    order = redis_client.hgetall(f"order:{order_id}")
+    
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     # Get the OTP code from redis
@@ -303,6 +319,11 @@ def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="OTP code not found or expired")
     if int(stored_otp) != otp:
         raise HTTPException(status_code=400, detail="Invalid OTP code")
+    # Get sending locker and cell from redis
+    sending_locker_id = order.get("sending_locker_id")
+    sending_cell_id = order.get("sending_cell_id")
+    # Send request to unlock the cell
+    locker_client.unlock(sending_locker_id, sending_cell_id)
     # Remove the OTP code from redis
     redis_client.delete(f"otp:{order_id}")
     return {"message": "OTP verified successfully"}

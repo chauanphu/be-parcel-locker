@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: be-parcel:1.7
+    image: be-parcel:1.7.2
     restart: always
     ports:
       - "8000:8000"
