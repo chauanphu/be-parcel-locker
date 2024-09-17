@@ -18,7 +18,7 @@ def test_create_locker(auth_headers):
         "longitude": 56.78,
 
     }
-    response = client.post("/api/v1/locker/", json=payload , headers=auth_headers)
+    response = client.post("/api/v1/lockers/create", json=payload , headers=auth_headers)
     assert response.status_code == 200    
  
 # # Test function for the get_lockers_by_paging endpoint
@@ -43,7 +43,7 @@ def test_get_locker(mock_db_session,auth_headers):
     # Mock the query and filtering logic
     mock_db_session.query().filter().first.return_value = mock_locker
 
-    response = client.get(f"/api/v1/locker/2", headers=auth_headers)
+    response = client.get(f"/api/v1/lockers/2", headers=auth_headers)
     assert response.status_code == 200
     response_data = response.json()
     print("response_data:", response_data)
@@ -140,7 +140,7 @@ def test_get_locker(mock_db_session,auth_headers):
 # Test function for the delete_locker endpoint
 def test_delete_locker(auth_headers):
     locker_id = 1  # Assuming locker_id = 1 exists in the test database
-    response = client.delete(f"/api/v1/locker/{locker_id}", headers= auth_headers)
+    response = client.delete(f"/api/v1/lockers/{locker_id}", headers= auth_headers)
     assert response.status_code == 200
     assert "Message" in response.json()
     

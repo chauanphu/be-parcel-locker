@@ -6,7 +6,7 @@ from main import app  # Assuming your FastAPI app instance is in main.py
 from models.profile import Profile  # Import the Profile model
 from database.session import get_db  # Import the get_db dependency
 from routers.profile import router  # Import your router
-from routers.profile import get_user
+
 
 # Fixture to initialize the test client
 client = TestClient(app)
@@ -57,7 +57,7 @@ def test_update_profile(client, mock_db_session, auth_headers):
         "gender": "Male",
         "age": 0
     }
-    response = client.put("/api/v1/profile/1/update_profile", json=update_request, headers=auth_headers)
+    response = client.put("/api/v1/profile/1/update", json=update_request, headers=auth_headers)
     print("response:", response.json())
     assert response.status_code == 200
     data = response.json()
