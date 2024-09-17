@@ -25,13 +25,9 @@ class LockerStatusEnum(str, Enum):
     Inactive = 'Inactive'   
 
 router = APIRouter(
-    prefix="/locker",
-    tags=["locker"],
+    prefix="/lockers",
+    tags=["lockers"],
     dependencies=[Depends(get_current_user)]
-)
-router2 = APIRouter(
-    prefix="/locker2",
-    tags=["locker2"],
 )
 
 class CellRequestCreate(BaseModel):
@@ -85,7 +81,7 @@ class DensityResponse(BaseModel):
     density_status: str
 
 
-@router2.get("/", response_model=Dict[str, Any])
+@router.get("/get_lockers", response_model=Dict[str, Any])
 async def get_lockers_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
@@ -137,7 +133,7 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
 
 
 #get cell by paging
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/get_cells", response_model=Dict[str, Any])
 def get_cells_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -170,7 +166,7 @@ def get_cells_by_paging(
         }
     
 
-@router.post("/")
+@router.post("/create")
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
 
     find_locker = db.query(Locker).filter((Locker.latitude == locker.latitude)&(Locker.longitude == locker.longitude)).first()
@@ -185,7 +181,7 @@ async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db
     else:
         return {"Message: Locker existed!"}
 
-@router.post("/{locker_id}/cell", response_model=UUID)
+@router.post("/{locker_id}/create_cell", response_model=UUID)
 async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     
