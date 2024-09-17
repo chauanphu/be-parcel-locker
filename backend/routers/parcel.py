@@ -1,5 +1,4 @@
-from datetime import date
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from auth.utils import get_current_user

@@ -2,7 +2,6 @@ from datetime import timedelta, datetime
 from fastapi import Depends, HTTPException
 from starlette import status
 from sqlalchemy.orm import Session
-# from models.user import User
 from models.account import Account
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError

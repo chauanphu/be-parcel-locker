@@ -1,17 +1,10 @@
-from datetime import datetime, timedelta
-from sqlalchemy import DateTime
-from fastapi import APIRouter, HTTPException, Depends,Query
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, EmailStr
 from database.session import get_db
 from models.recipient import Recipient
 from sqlalchemy.orm import Session
-from typing import Any, Dict, List, Optional
-from auth.utils import get_current_user, authenticate_user, bcrypt_context
-from starlette import status
+from auth.utils import get_current_user
 from enum import Enum
-from jose import JWTError, jwt
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-from decouple import config
 
 router = APIRouter(
     prefix="/recipient",

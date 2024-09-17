@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends,Query
 from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
-# from models.user import User
 from models.profile import Profile
 from models.account import Account
 from sqlalchemy.orm import Session
@@ -132,7 +131,7 @@ def get_paging_users(
         }
     
 # A PUT REQUEST TO UPDATE USER
-@router.put("/{user_id}")
+@router.put("/{user_id}/update_profile")
 def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(get_db)):
     # Allow for partial updates
     user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
@@ -153,52 +152,9 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     return {"message": "Profile updated successfully",
             "profile_id": profile}
 
-#put request to update profile user 
-@router.put("/{user_id}/test") 
-async def update_profile(user_id: int, update_request: UpdateProfileRequest, db: Session = Depends(get_db)):
-    # Retrieve the user's profile
-    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-
-    # Update profile fields if they are provided in the request
-    if update_request.name:
-        profile.name = update_request.name
-    if update_request.gender:
-        profile.gender = update_request.gender
-    if update_request.age is not None:
-        profile.age = update_request.age
-    if update_request.phone:
-        profile.phone = update_request.phone
-    if update_request.address:
-        profile.address = update_request.address
-
-    db.commit()
-    db.refresh(profile)
-    
-    return {"message": "Profile updated successfully", "profile": profile}
 
 
 
 
 
-@router.post("{user_id}/create_profile")
-async def create_profile(user_id : int, _user: UpdateProfileRequest, db: Session = Depends(get_db)):
-    
-    #Find the profile
-    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
-    
-    if profile is not None:
-        return {"message": "The profile has already been created, please update not create"}
-    else:
-        profile = Profile(
-            user_id=user_id,
-            phone = _user.phone,
-            address = _user.address
-        )
-        
-    db.add(profile)
-    db.commit()
-    db.refresh(profile)
-        
 

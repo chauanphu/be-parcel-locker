@@ -23,15 +23,6 @@ class dataGPS(BaseModel):
 # Temporary list to store location data
 location_data_list: List[GPSData] = []
 
-@router.post("/", response_model=GPSData)
-def receive_location_data(data: GPSData):
-    location_data_list.append(data)
-    return data
-
-@router.get("/", response_model=List[GPSData])
-def get_location_data():
-    return location_data_list
-
 
 # WebSocket endpoint
 @router.websocket("/ws")
