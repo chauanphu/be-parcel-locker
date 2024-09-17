@@ -148,4 +148,3 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
 
 
 
-
