@@ -24,16 +24,7 @@ router = APIRouter(
     tags=["profile"],
     dependencies=[Depends(get_current_user)]
 )
-router2 = APIRouter(
-    prefix="/profile",
-    tags=["profile"],
-    dependencies=[Depends(get_current_user)]
-)
 
-public_router = APIRouter(
-    prefix="/profile",
-    tags=["profile"]
-)
 # shipper_router = APIRouter(
 #     prefix="/shipper",
 #     tags=["shipper"]
