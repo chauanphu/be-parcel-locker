@@ -104,19 +104,24 @@ def get_paging_users(
         total_users = db.query(Profile).count()
 
         # Fetch paginated list of users
-        users = db.query(Profile).offset((page - 1) * per_page).limit(per_page).all()
-
+        users = (
+        db.query(Profile, Account)
+        .join(Account, Profile.user_id == Account.user_id)  # Adjust field names accordingly
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
         # Format the response
         user_responses = [
             {
-                "user_id": user.user_id,
-                "name": user.name,
-                "email": user.email,
-                "phone": user.phone,
-                "address": user.address,
-                "status": user.status,
-                "Date_created": user.Date_created,
-                # "role": user.role,
+                "user_id": user.Profile.user_id,
+                "name": user.Profile.name,
+                "email": user.Account.email,
+                "phone": user.Profile.phone,
+                "address": user.Profile.address,
+                "status": user.Account.status,
+                "Date_created": user.Account.Date_created,
+                #"role": user.role,
             }
             for user in users
         ]
