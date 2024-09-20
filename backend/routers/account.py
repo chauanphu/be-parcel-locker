@@ -174,13 +174,14 @@ pending_users = {} # For pending users
 #to create a new account
 #@router.push()
 
-@router.post("/create_account", response_model=CreateUserRequest)
+@router.post("/create_account")
 async def create_account(account: CreateUserRequest, db: Session = Depends(get_db)):
+    account.password = bcrypt_context.hash(account.password)
     new_account = Account(**account.model_dump())
     db.add(new_account)
     db.commit()
     db.refresh(new_account)
-    return new_account
+    return new_account.user_id
 
 
 
