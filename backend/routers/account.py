@@ -54,6 +54,12 @@ class CreateUserRequest(BaseModel):
     username: str
     password: str
 
+class CreateAdminRequest(BaseModel):
+    email: str
+    username: str
+    password: str
+    role: int
+
 class UserResponse(BaseModel):
     user_id: int
     name: str
@@ -174,16 +180,24 @@ pending_users = {} # For pending users
 #to create a new account
 #@router.push()
 
-@router.post("/create_account")
-async def create_account(account: CreateUserRequest, db: Session = Depends(get_db)):
+@router.post("/create_account_for_admin")
+async def create_account_admin(account: CreateAdminRequest, db: Session = Depends(get_db)):
     account.password = bcrypt_context.hash(account.password)
+    account.role = 1
     new_account = Account(**account.model_dump())
     db.add(new_account)
     db.commit()
     db.refresh(new_account)
     return new_account.user_id
 
-
+@router.post("/create_account_for_user")
+async def create_account_user(account: CreateUserRequest, db: Session = Depends(get_db)):
+    account.password = bcrypt_context.hash(account.password)
+    new_account = Account(**account.model_dump())
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return new_account.user_id
 
 @router.delete("/delete_account_for_current_user")
 async def delete_account_user(db: Session = Depends(get_db),

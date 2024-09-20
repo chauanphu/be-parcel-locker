@@ -58,7 +58,7 @@ class CreateUserRequest(BaseModel):
     gender: GenderStatusEnum
     age: int
 
-class UserResponse(BaseModel): #done
+class UserResponse(BaseModel):
     user_id: int
     name: str
     gender: GenderStatusEnum
@@ -134,6 +134,33 @@ def get_paging_users(
             "total_pages": total_pages,
             "data": user_responses
         }
+
+# Create user profile
+@router.post("/{user_id}/create_profile")
+async def create_profile(user_id: int, _user: CreateUserRequest, db: Session = Depends(get_db)):
+    user = db.query(Account).filter(Account.user_id == user_id).first()
+    if user == None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
+    user_data = _user.dict()
+    
+    address = _user.address
+    address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
+    user_data['address'] = address_string
+    
+    new_account = Profile(
+        user_id=user_id,
+        name=_user.name,
+        address=user_data['address'],
+        phone=_user.phone,
+        gender=_user.gender,
+        age=_user.age
+        )
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return {"message": "Profile created successfully"}
     
 # A PUT REQUEST TO UPDATE USER
 @router.put("/{user_id}/update_profile")
@@ -141,7 +168,6 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     # Allow for partial updates
     user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
     user_data = _user.dict()
-    
     
     address = _user.address
     address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
@@ -156,10 +182,4 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     db.commit()
     return {"message": "Profile updated successfully",
             "user_id": user.username}
-
-
-
-
-
-
 
