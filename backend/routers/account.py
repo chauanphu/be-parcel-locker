@@ -183,6 +183,7 @@ async def create_account(account: CreateUserRequest, db: Session = Depends(get_d
     return new_account
 
 
+
 @router.delete("/delete_account_for_current_user")
 async def delete_account_user(db: Session = Depends(get_db),
                               current_user: Account = Depends(get_current_user)):

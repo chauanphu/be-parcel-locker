@@ -155,7 +155,7 @@ def update_user(user_id: int, _user: CreateUserRequest, db: Session = Depends(ge
     
     db.commit()
     return {"message": "Profile updated successfully",
-            "profile_id": profile}
+            "user_id": user.username}
 
 
 
