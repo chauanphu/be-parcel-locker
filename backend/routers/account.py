@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Any, Dict
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 # from models.shipper import Shipper
 # from models.order import Order
@@ -179,6 +180,46 @@ pending_users = {} # For pending users
 
 #to create a new account
 #@router.push()
+
+@router.get("/accounts", response_model=Dict[str, Any])
+def get_paging_accounts(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+    # Total number of accounts
+    total_accounts = db.query(Account).count()
+
+    # Fetch paginated list of accounts
+    accounts = (
+        db.query(Account)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    # Format the response
+    account_responses = [
+        {
+            "user_id": account.user_id,
+            "email": account.email,
+            "username": account.username,
+            "status": account.status,
+            "date_created": account.Date_created,
+            "role": account.role,
+        }
+        for account in accounts
+    ]
+
+    total_pages = (total_accounts + per_page - 1) // per_page
+    return {
+        "total": total_accounts,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": account_responses
+    }
+
 
 @router.post("/create_account_for_admin")
 async def create_account_admin(account: CreateAdminRequest, db: Session = Depends(get_db)):
