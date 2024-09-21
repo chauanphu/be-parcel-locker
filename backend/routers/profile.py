@@ -142,6 +142,10 @@ async def create_profile(user_id: int, _user: CreateUserRequest, db: Session = D
     if user == None:
         raise HTTPException(status_code=404, detail="User not found")
     
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if profile is not None:
+        raise HTTPException(status_code=404, detail="Already has profile, please change to update profile")
+    
     user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
     user_data = _user.dict()
     

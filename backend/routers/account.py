@@ -51,9 +51,10 @@ class Address(BaseModel):
 
 
 class CreateUserRequest(BaseModel):
-    email: str
+    email: EmailStr
     username: str
-    password: str
+    password: str = Field(..., min_length=6)
+    confirm_password: str
 
 class CreateAdminRequest(BaseModel):
     email: str
@@ -222,9 +223,13 @@ def get_paging_accounts(
 
 
 @router.post("/create_account_for_admin")
-async def create_account_admin(account: CreateAdminRequest, db: Session = Depends(get_db)):
+async def create_account_admin(account: CreateAdminRequest, db: Session = Depends(get_db),current_user: Account = Depends(get_current_user)):
     account.password = bcrypt_context.hash(account.password)
     account.role = 1
+    
+    if current_user.role != 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only admin can create admin accounts")
+    
     new_account = Account(**account.model_dump())
     db.add(new_account)
     db.commit()
@@ -233,8 +238,19 @@ async def create_account_admin(account: CreateAdminRequest, db: Session = Depend
 
 @router.post("/create_account_for_user")
 async def create_account_user(account: CreateUserRequest, db: Session = Depends(get_db)):
+    check_user_email = db.query(Account).filter(Account.email == account.email).first()
+    if check_user_email is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The email already exists")
+    check_user_username = db.query(Account).filter(Account.username == account.username).first()
+    if check_user_username is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The username already exists")
+    if account.password != account.confirm_password:
+         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                             detail='Confirm password not like password')
     account.password = bcrypt_context.hash(account.password)
-    new_account = Account(**account.model_dump())
+    
+    
+    new_account = Account(email=account.email, username=account.username, password=account.password)
     db.add(new_account)
     db.commit()
     db.refresh(new_account)
