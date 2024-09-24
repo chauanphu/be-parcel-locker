@@ -89,9 +89,50 @@ async def get_locker(locker_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Locker not found")
     return locker
 
+#get locker by paging
+@router.get("/", response_model=Dict[str, Any])
+async def get_lockers_by_paging(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),  # Current page number for lockers
+    per_page: int = Query(10, ge=1),  # Number of lockers per page
+):
+        # Pagination for lockers
+        total_lockers = db.query(Locker).count()
+        lockers = db.query(Locker).offset((page - 1) * per_page).limit(per_page).all()
+
+        locker_responses = []
+        for locker in lockers:
+            # Pagination for cells within each locker
+            cells = db.query(Cell).filter(Cell.locker_id == locker.locker_id).all()
+
+            locker_responses.append({
+                "locker_id": locker.locker_id,
+                "address": locker.address,
+                "latitude": locker.latitude,
+                "longitude": locker.longitude,
+                "locker_status": locker.locker_status,
+                "date_created": locker.date_created,
+
+                "cells": [
+                    {
+                        "cell_id": cell.cell_id,
+                        "occupied": cell.occupied,
+                        "size": cell.size
+                    } for cell in cells
+                ]
+            })
+
+        total_pages = (total_lockers + per_page - 1) // per_page
+        return {
+            "total": total_lockers,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "data": locker_responses
+        }
 
 #get cell by paging
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/cells", response_model=Dict[str, Any])
 def get_cells_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -203,8 +244,6 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
     return {
         "Message": "Locker deleted sucessfully"
     }
-
-    
 
 # Get density of occupied cells by locker_id
 @router.get("/{locker_id}/size/{size}/density", response_model=DensityResponse)
