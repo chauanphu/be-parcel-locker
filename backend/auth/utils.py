@@ -2,6 +2,7 @@ from datetime import timedelta, datetime
 from fastapi import Depends, HTTPException
 from starlette import status
 from sqlalchemy.orm import Session
+from models.locker import Locker
 from models.account import Account
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
@@ -43,7 +44,11 @@ def get_current_user(token: str = Depends(oauth2_bearer), db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Could not validate user')
 
-
+def certify_locker(locker_id: int, db: Session = Depends(get_db)):
+    locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+    if not locker:
+        raise HTTPException(status_code=404, detail="Locker not found")
+    return locker
 
 # def get_current_user(token: str = Depends(oauth2_bearer)):
 #     try:

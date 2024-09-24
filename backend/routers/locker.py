@@ -8,7 +8,7 @@ from models.parcel import Parcel
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
-from auth.utils import get_current_user
+from auth.utils import certify_locker, get_current_user
 from uuid import UUID
 from enum import Enum
 
@@ -27,7 +27,7 @@ class LockerStatusEnum(str, Enum):
 router = APIRouter(
     prefix="/locker",
     tags=["locker"],
-    dependencies=[Depends(get_current_user)]
+    dependencies=[]
 )
 
 class CellRequestCreate(BaseModel):
@@ -164,7 +164,6 @@ def get_cells_by_paging(
             "data": cell_responses
         }
     
-
 @router.post("/")
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
 
@@ -179,6 +178,16 @@ async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db
         return locker.locker_id
     else:
         return {"Message: Locker existed!"}
+
+# Get all cells of locker
+@router.get("/{locker_id}/cells", response_model=List[CellResponse], dependencies=[Depends(certify_locker)])
+async def get_cells(locker_id: int, db: Session = Depends(get_db)):
+    # Get all cells of a locker
+    cells = db.query(Cell).filter(Cell.locker_id == locker_id).all()
+    # If no cells are found, raise 404
+    if not cells:
+        raise HTTPException(status_code=404, detail="Cells not found")
+    return cells
 
 @router.post("/{locker_id}/cell", response_model=UUID)
 async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
@@ -276,4 +285,3 @@ def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
         density = density,
         density_status = density_status
     )
-    
