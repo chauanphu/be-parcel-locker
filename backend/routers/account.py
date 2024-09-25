@@ -54,7 +54,7 @@ class CreateUserRequest(BaseModel):
     email: EmailStr
     username: str
     password: str = Field(..., min_length=6)
-    confirm_password: str
+
 
 class CreateAdminRequest(BaseModel):
     email: str
@@ -221,34 +221,16 @@ def get_paging_accounts(
         "data": account_responses
     }
 
-
-@router.post("/create_account_for_admin")
-async def create_account_admin(account: CreateAdminRequest, db: Session = Depends(get_db),current_user: Account = Depends(get_current_user)):
-    account.password = bcrypt_context.hash(account.password)
-    account.role = 1
-    
-    if current_user.role != 1:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only admin can create admin accounts")
-    
-    new_account = Account(**account.model_dump())
-    db.add(new_account)
-    db.commit()
-    db.refresh(new_account)
-    return new_account.user_id
-
 @router.post("/create_account_for_user")
 async def create_account_user(account: CreateUserRequest, db: Session = Depends(get_db)):
+    account.password = bcrypt_context.hash(account.password)
     check_user_email = db.query(Account).filter(Account.email == account.email).first()
     if check_user_email is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The email already exists")
     check_user_username = db.query(Account).filter(Account.username == account.username).first()
     if check_user_username is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The username already exists")
-    if account.password != account.confirm_password:
-         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                             detail='Confirm password not like password')
-    account.password = bcrypt_context.hash(account.password)
-    
+   
     
     new_account = Account(email=account.email, username=account.username, password=account.password)
     db.add(new_account)
@@ -257,23 +239,22 @@ async def create_account_user(account: CreateUserRequest, db: Session = Depends(
     return new_account.user_id
 
 @router.delete("/delete_account_for_current_user")
-async def delete_account_user(db: Session = Depends(get_db),
-                              current_user: Account = Depends(get_current_user)):
-    profile = db.query(Profile).filter(Profile.user_id == current_user.user_id).first()
-    if profile is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no profile")
-    if profile.name == "Admin":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin profile")
-    acc = db.query(Account).filter(Account.user_id == current_user.user_id).first()
+async def delete_account_user(user_id: int, db: Session = Depends(get_db)):
+    acc = db.query(Account).filter(Account.user_id == user_id).first()
     if acc is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no account")
     if acc.email == "admin@example.com":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin account")
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no profile")
+    if profile.name == "Admin":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin profile")
     
+    db.delete(acc)
     db.delete(profile)
     db.commit()
-    db.delete(acc)
-    db.commit()
+    
     
     return {
         "Message": "Account deleted sucessfully"
