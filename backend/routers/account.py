@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Any, Dict
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 # from models.shipper import Shipper
 # from models.order import Order
@@ -50,9 +51,16 @@ class Address(BaseModel):
 
 
 class CreateUserRequest(BaseModel):
+    email: EmailStr
+    username: str
+    password: str = Field(..., min_length=6)
+
+
+class CreateAdminRequest(BaseModel):
     email: str
     username: str
     password: str
+    role: int
 
 class UserResponse(BaseModel):
     user_id: int
@@ -174,33 +182,79 @@ pending_users = {} # For pending users
 #to create a new account
 #@router.push()
 
-@router.post("/create_account", response_model=CreateUserRequest)
-async def create_account(account: CreateUserRequest, db: Session = Depends(get_db)):
-    new_account = Account(**account.model_dump())
+@router.get("/accounts", response_model=Dict[str, Any])
+def get_paging_accounts(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+    # Total number of accounts
+    total_accounts = db.query(Account).count()
+
+    # Fetch paginated list of accounts
+    accounts = (
+        db.query(Account)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    # Format the response
+    account_responses = [
+        {
+            "user_id": account.user_id,
+            "email": account.email,
+            "username": account.username,
+            "status": account.status,
+            "date_created": account.Date_created,
+            "role": account.role,
+        }
+        for account in accounts
+    ]
+
+    total_pages = (total_accounts + per_page - 1) // per_page
+    return {
+        "total": total_accounts,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": account_responses
+    }
+
+@router.post("/create_account_for_user")
+async def create_account_user(account: CreateUserRequest, db: Session = Depends(get_db)):
+    account.password = bcrypt_context.hash(account.password)
+    check_user_email = db.query(Account).filter(Account.email == account.email).first()
+    if check_user_email is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The email already exists")
+    check_user_username = db.query(Account).filter(Account.username == account.username).first()
+    if check_user_username is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The username already exists")
+   
+    
+    new_account = Account(email=account.email, username=account.username, password=account.password)
     db.add(new_account)
     db.commit()
     db.refresh(new_account)
-    return new_account
-
+    return new_account.user_id
 
 @router.delete("/delete_account_for_current_user")
-async def delete_account_user(db: Session = Depends(get_db),
-                              current_user: Account = Depends(get_current_user)):
-    profile = db.query(Profile).filter(Profile.user_id == current_user.user_id).first()
-    if profile is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no profile")
-    if profile.name == "Admin":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin profile")
-    acc = db.query(Account).filter(Account.user_id == current_user.user_id).first()
+async def delete_account_user(user_id: int, db: Session = Depends(get_db)):
+    acc = db.query(Account).filter(Account.user_id == user_id).first()
     if acc is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no account")
     if acc.email == "admin@example.com":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin account")
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no profile")
+    if profile.name == "Admin":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin profile")
     
+    db.delete(acc)
     db.delete(profile)
     db.commit()
-    db.delete(acc)
-    db.commit()
+    
     
     return {
         "Message": "Account deleted sucessfully"

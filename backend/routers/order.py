@@ -456,11 +456,15 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
     if parcel_to_delete:
         db.delete(parcel_to_delete)
+    cells_sending = db.query(Cell).filter(Cell.cell_id == order_delete.sending_cell_id).update({"occupied": False})
+    cells_recieved = db.query(Cell).filter(Cell.cell_id == order_delete.receiving_cell_id).update({"occupied": False})
+    if (cells_recieved != 1) or (cells_sending != 1):
+        raise HTTPException(status_code=404, detail=f"Cell not found, received:{cells_recieved}, sending:{cells_sending} ")
     db.delete(order_delete)
     db.commit()
     
     return {
-        "Message": "Order and parcel deleted"
+        "Message": f"Order {order_id} deleted"
     }
 
 # Get cell
