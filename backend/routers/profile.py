@@ -5,7 +5,7 @@ from models.profile import Profile
 from models.account import Account
 from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional
-from auth.utils import get_current_user
+from auth.utils import get_current_user,check_admin
 from starlette import status
 from enum import Enum
 from decouple import config
@@ -86,7 +86,7 @@ class UpdateProfileRequest(BaseModel):
 #     confirm_password: str
 #     role: int = 3
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse, dependencies=[Depends(check_admin)])
 def get_user(user_id: int, db: Session = Depends(get_db), ):
     user = db.query(Profile).filter(Profile.user_id == user_id).first()
     if not user:
