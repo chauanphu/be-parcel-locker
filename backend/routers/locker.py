@@ -90,7 +90,7 @@ class DensityResponse(BaseModel):
 #     return locker
 
 #get locker by paging
-@router.get("/", response_model=Dict[str, Any],dependencies=[Depends(check_admin)])
+@router.get("/lockers", response_model=Dict[str, Any],dependencies=[Depends(check_admin)])
 async def get_lockers_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
