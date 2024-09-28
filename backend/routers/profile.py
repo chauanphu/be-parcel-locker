@@ -86,14 +86,14 @@ class UpdateProfileRequest(BaseModel):
 #     confirm_password: str
 #     role: int = 3
 
-@router.get("/{user_id}", response_model=UserResponse, dependencies=[Depends(check_admin)])
-def get_user(user_id: int, db: Session = Depends(get_db), ):
+@router.get("/{user_id}", response_model=UserResponse)
+def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(Profile).filter(Profile.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User profile not found")
     return user
 
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/", response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
 def get_paging_users(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),

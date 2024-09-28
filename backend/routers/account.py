@@ -2,13 +2,11 @@ from datetime import datetime, timedelta
 from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
-# from models.shipper import Shipper
-# from models.order import Order
 from database.session import get_db
 from models.profile import Profile
 from models.account import Account
 from sqlalchemy.orm import Session
-from auth.utils import get_current_user, authenticate_user, bcrypt_context
+from auth.utils import get_current_user,bcrypt_context,check_admin
 from starlette import status
 from enum import Enum
 from jose import JWTError, jwt
@@ -29,19 +27,11 @@ router = APIRouter(
     tags=["account"],
     dependencies=[Depends(get_current_user)]
 )
-router2 = APIRouter( 
-    prefix="/account",
-    tags=["account"],
-    dependencies=[Depends(get_current_user)]
-)
+
 public_router = APIRouter(
     prefix="/account",
     tags=["account"]
 )
-# shipper_router = APIRouter(
-#     prefix="/shipper",
-#     tags=["shipper"]
-# )    
 
 class Address(BaseModel):
     address_number: str
@@ -77,12 +67,6 @@ class RegisterUserRequest(BaseModel):
     password: str = Field(..., min_length=6)
     confirm_password: str
 
-# class RegisterShipperRequest(BaseModel):
-#     username: str
-#     email: EmailStr
-#     password: str = Field(..., min_length=6)
-#     confirm_password: str
-#     role: int = 3
 
 
 
@@ -179,10 +163,7 @@ pending_users = {} # For pending users
 #     return {"message": "Email confirmed and user registered successfully"}
 
 
-#to create a new account
-#@router.push()
-
-@router.get("/accounts", response_model=Dict[str, Any])
+@router.get("/accounts", response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
 def get_paging_accounts(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -238,7 +219,7 @@ async def create_account_user(account: CreateUserRequest, db: Session = Depends(
     db.refresh(new_account)
     return new_account.user_id
 
-@router.delete("/delete_account_for_current_user")
+@router.delete("/delete_account", dependencies=[Depends(check_admin)])
 async def delete_account_user(user_id: int, db: Session = Depends(get_db)):
     acc = db.query(Account).filter(Account.user_id == user_id).first()
     if acc is None:

@@ -44,14 +44,14 @@ class RecipientResponse(BaseModel):
     address: Address
     gender: GenderStatusEnum
     
-# Create new recipient
-@router.post("/", response_model=RecipientRequest)
-def create_recipient(recipient: RecipientRequest, db: Session = Depends(get_db)):
-    new_recipient = Recipient(**recipient.model_dump())
-    db.add(new_recipient)
-    db.commit()
-    db.refresh(new_recipient)
-    return new_recipient
+# # Create new recipient
+# @router.post("/", response_model=RecipientRequest)
+# def create_recipient(recipient: RecipientRequest, db: Session = Depends(get_db)):
+#     new_recipient = Recipient(**recipient.model_dump())
+#     db.add(new_recipient)
+#     db.commit()
+#     db.refresh(new_recipient)
+#     return new_recipient
 
 # Get recipient by recipient_id
 @router.get("/{recipient_id}", response_model=RecipientResponse)
@@ -61,22 +61,22 @@ def get_recipient(recipient_id: int, db: Session = Depends(get_db), ):
         raise HTTPException(status_code=404, detail="Recipient not found")
     return recipient
 
-# A put request to update recipient
-@router.put("/{recipient_id}", response_model=RecipientResponse)
-def update_recipient(recipient_id: int, _recipient: RecipientRequest, db: Session = Depends(get_db)):
-    # Allow for partial updates
-    recipient_data = _recipient.model_dump(exclude_unset=True, exclude_none=True)
-    recipient_data = _recipient.dict()
+# # A put request to update recipient
+# @router.put("/{recipient_id}", response_model=RecipientResponse)
+# def update_recipient(recipient_id: int, _recipient: RecipientRequest, db: Session = Depends(get_db)):
+#     # Allow for partial updates
+#     recipient_data = _recipient.model_dump(exclude_unset=True, exclude_none=True)
+#     recipient_data = _recipient.dict()
     
-    address = _recipient.address
-    address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
-    recipient_data['address'] = address_string
+#     address = _recipient.address
+#     address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
+#     recipient_data['address'] = address_string
     
-    recipient = db.query(Recipient).filter(Recipient.recipient_id == recipient_id).update(recipient_data)
-    # Check if recipient exists
-    # If not, raise an error
-    if not recipient:
-        raise HTTPException(status_code=404, detail="Recipient not found")
+#     recipient = db.query(Recipient).filter(Recipient.recipient_id == recipient_id).update(recipient_data)
+#     # Check if recipient exists
+#     # If not, raise an error
+#     if not recipient:
+#         raise HTTPException(status_code=404, detail="Recipient not found")
     
-    db.commit()
-    return recipient
+#     db.commit()
+#     return recipient

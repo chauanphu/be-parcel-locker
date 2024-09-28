@@ -2,10 +2,13 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
+from auth.utils import get_current_user,bcrypt_context,check_admin
+from fastapi import Depends
 
 router = APIRouter(
     prefix="/location",
-    tags=["location"]
+    tags=["location"],
+    dependencies=[Depends(check_admin)]
 )
 
 class GPSData(BaseModel):
@@ -23,6 +26,9 @@ class dataGPS(BaseModel):
 # Temporary list to store location data
 location_data_list: List[GPSData] = []
 
+@router.get('/get_location_data')
+async def get_location_data():
+    return location_data_list
 
 # WebSocket endpoint
 @router.websocket("/ws")
