@@ -124,7 +124,7 @@ async def get_lockers_by_paging(
 
         total_pages = (total_lockers + per_page - 1) // per_page
         return {
-            "total": total_lockers,
+            "total_lockers": total_lockers,
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
@@ -157,7 +157,7 @@ def get_cells_by_paging(
         ]  
         total_pages = (total_cells + per_page - 1) // per_page
         return {
-            "total": total_cells,
+            "total_cells": total_cells,
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
