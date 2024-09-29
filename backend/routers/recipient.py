@@ -62,13 +62,6 @@ def get_paging_recipients(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1)
 ):
-    """
-    Get a paginated list of recipients.
-    :param page: Current page number (starts at 1).
-    :param per_page: Number of items per page.
-    :param db: Database session.
-    :return: Paginated recipient data.
-    """
     # Total number of recipients
     total_recipients = db.query(Recipient).count()
 
@@ -84,6 +77,7 @@ def get_paging_recipients(
     recipient_responses = [
         {
             "recipient_id": recipient.recipient_id,
+            "profile_id": recipient.profile_id,
             "name": recipient.name,
             "phone": recipient.phone,
             "email": recipient.email,
