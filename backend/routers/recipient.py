@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
-from database.session import get_db
-from models.recipient import Recipient
-from sqlalchemy.orm import Session
-from auth.utils import get_current_user
 from enum import Enum
+from typing import Any, Dict
+
+from auth.utils import check_admin, get_current_user
+from database.session import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query
+from models.recipient import Recipient
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/recipient",
@@ -52,6 +54,56 @@ class RecipientResponse(BaseModel):
 #     db.commit()
 #     db.refresh(new_recipient)
 #     return new_recipient
+
+# Get paginated recipients
+@router.get("/", response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
+def get_paging_recipients(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1)
+):
+    """
+    Get a paginated list of recipients.
+    :param page: Current page number (starts at 1).
+    :param per_page: Number of items per page.
+    :param db: Database session.
+    :return: Paginated recipient data.
+    """
+    # Total number of recipients
+    total_recipients = db.query(Recipient).count()
+
+    # Fetch paginated list of recipients
+    recipients = (
+        db.query(Recipient)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    
+    # Format the response
+    recipient_responses = [
+        {
+            "recipient_id": recipient.recipient_id,
+            "name": recipient.name,
+            "phone": recipient.phone,
+            "email": recipient.email,
+            "address": recipient.address,
+            "gender": recipient.gender,
+        }
+        for recipient in recipients
+    ]
+
+    # Calculate total pages
+    total_pages = (total_recipients + per_page - 1) // per_page
+
+    # Return the paginated response
+    return {
+        "total": total_recipients,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": recipient_responses
+    }
 
 # Get recipient by recipient_id
 @router.get("/{recipient_id}", response_model=RecipientResponse)
