@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from datetime import datetime
-
+from sqlalchemy.orm import relationship
 from database.__init__ import Base
 
 
@@ -17,6 +17,7 @@ class Parcel(Base):
     weight = Column(Integer, nullable=False)
     parcel_size = Column(String, nullable=False)
     date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
-
+    
+    parcelType = relationship('ParcelType', backref= 'parcel_type',lazy=True, uselist=False)
 
 print("Parcel model created successfully.")
