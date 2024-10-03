@@ -82,6 +82,9 @@ class OrderResponse(BaseModel):
     order_status: OrderStatusEnum
     # warnings: bool
 
+class OrderStatus(BaseModel):
+    order_status: OrderStatusEnum
+
 class Token2(BaseModel):
     order_id: int
     message: str
@@ -444,20 +447,29 @@ def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(
 
 #update order status by order id
 @router.put("/{order_id}/update_order_status")
-async def update_order_status(order_id: int, order: OrderResponse, db: Session = Depends(get_db)):
-    find_order = db.query(Order).filter(Order.order_id == order_id).update(
-        order.model_dump(
-            exclude_unset=True, 
-            exclude_none=True
-        ))
-    if find_order == None:
+async def update_order_status(order_id: int, order: OrderStatus, db: Session = Depends(get_db)):
+    # First, find the order by order_id
+    existing_order = db.query(Order).filter(Order.order_id == order_id).first()
+    
+    if existing_order is None:
         raise HTTPException(status_code=404, detail="Order not found")
-    elif find_order['order_status'] == "Packaging":
-        return {"Message": f"Order_id {order_id} is packaging, cannot be canceled"}
-    else:
-        find_order['order_status'] = "Canceled"
-        db.query(Order).filter(Order.order_id == order_id).update(find_order)
-        return {"Message": f"Order_id {order_id} is canceled"}
+    
+    # Check the current order status
+    if existing_order.order_status != "Packaging":
+        return {"Message": f"You can only cancel when Packaging"}
+    
+    # Update the order status to "Canceled"
+    existing_order.order_status = "Canceled"
+    
+    # Update other fields if necessary
+    for field, value in order.model_dump(exclude_unset=True, exclude_none=True).items():
+        setattr(existing_order, field, value)
+    
+    # Commit the changes to the database
+    db.commit()
+    
+    return {"Message": f"Order_id {order_id} is canceled"}
+
 
 #delete order bằng parcel_id
 @router.delete("/{order_id}", dependencies=[Depends(check_admin)])
