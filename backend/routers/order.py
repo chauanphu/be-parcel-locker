@@ -164,11 +164,11 @@ def to_dict(model_instance):
 
 def determine_parcel_size(length: int, width: int, height: int, weight: int) -> List[str]:
     size_options = []
-    if length <= 13 and width <= 15 and height <= 30 and weight <= 20:
+    if length*width*height <= 13*15*30:
         size_options.append("S")
-    if length <= 23 and width <= 15 and height <= 30 and weight <= 50:
+    if length*width*height <= 23*15*30:
         size_options.append("M")
-    if length <= 33 and width <= 20 and height <= 30 and weight <= 100:
+    if length*width*height <= 33*20*30:
         size_options.append("L")
     if not size_options:
         raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
