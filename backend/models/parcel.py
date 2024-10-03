@@ -18,6 +18,6 @@ class Parcel(Base):
     parcel_size = Column(String, nullable=False)
     date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
     
-    parcelType = relationship('ParcelType', backref= 'parcel_type',lazy=True, uselist=False)
+    parcelType = Column(Integer, ForeignKey('parcel_type.parcel_type_id'))
 
 print("Parcel model created successfully.")
