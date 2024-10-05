@@ -43,7 +43,14 @@ def get_current_user(token: str = Depends(oauth2_bearer), db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Could not validate user')
 
-
+def check_admin(payload: str = Depends(get_current_user)):
+    print('payload: ', payload)
+    role = payload.role
+    if role != 1:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail='Only admin can use this endpoint')
+    else:
+        return payload
 
 # def get_current_user(token: str = Depends(oauth2_bearer)):
 #     try:

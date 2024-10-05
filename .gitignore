@@ -126,3 +126,5 @@ cython_debug/
 # PostgreSQL
 data
 *.sql
+
+.DS_Store

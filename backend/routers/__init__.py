@@ -7,7 +7,6 @@ from .parcel import router as parcel_router
 from .location import router as location_router
 
 from .account import router as account_router
-from .account import router2 as account_router2
 from .account import public_router as a_public_router
 # from .account import shipper_router as shipper_router
 
@@ -28,7 +27,6 @@ api_router.include_router(parcel_router)
 api_router.include_router(location_router)
 
 api_router.include_router(account_router)
-api_router.include_router(account_router2)
 api_router.include_router(a_public_router)
 
 api_router.include_router(profile_router)

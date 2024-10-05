@@ -6,7 +6,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
-from auth.utils import get_current_user
+from auth.utils import get_current_user,check_admin
 from sqlalchemy.orm import Session, joinedload
 from models.account import Account
 from models.recipient import Recipient
@@ -74,13 +74,16 @@ class OrderResponse(BaseModel):
     sender_id: int
     sender_informations: sender_informations
     recipient_id: int
-    sending_locker: int
-    receiving_locker: int
+    sending_address: str
+    receiving_address: str
     ordering_date:date
     sending_date: Optional[date] 
     receiving_date: Optional[date]
     order_status: OrderStatusEnum
     # warnings: bool
+
+class OrderStatus(BaseModel):
+    order_status: OrderStatusEnum
 
 class Token2(BaseModel):
     order_id: int
@@ -161,11 +164,11 @@ def to_dict(model_instance):
 
 def determine_parcel_size(length: int, width: int, height: int, weight: int) -> List[str]:
     size_options = []
-    if length <= 13 and width <= 15 and height <= 30 and weight <= 20:
+    if length*width*height <= 13*15*30:     #lenght is 13, widht is 15, height is 30
         size_options.append("S")
-    if length <= 23 and width <= 15 and height <= 30 and weight <= 50:
+    if length*width*height <= 23*15*30:     #lenght is 23, widht is 15, height is 30
         size_options.append("M")
-    if length <= 33 and width <= 20 and height <= 30 and weight <= 100:
+    if length*width*height <= 33*20*30:     #lenght is 33, widht is 20, height is 30
         size_options.append("L")
     if not size_options:
         raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
@@ -329,7 +332,7 @@ def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
     return {"message": "OTP verified successfully"}
 
 #get order by paging
-@router.get("/",response_model=Dict[str, Any])
+@router.get("/",response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
 async def get_paging_order(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
@@ -358,8 +361,8 @@ async def get_paging_order(
                 address = profile.address if profile else ""
             ),
             recipient_id = order.recipient_id,
-            sending_locker= sending_locker.locker_id,
-            receiving_locker= receiving_locker.locker_id,
+            sending_address = sending_locker.address,
+            receiving_address = receiving_locker.address,
             ordering_date=order.ordering_date,
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
@@ -382,7 +385,7 @@ async def get_paging_order(
         "data": order_responses
     }
 
-#GET order bằng parcel_id
+#GET order bằng order_id
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     query = join_order_parcel_cell(db)
@@ -395,7 +398,8 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     # Extract and convert data
     sending_locker = find_locker_by_cell(order.sending_cell_id, db)
     receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
-
+  
+    
     
     sender_info = sender_informations(
         name=profile.name if profile else "",
@@ -412,11 +416,9 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     )
     response = OrderResponse(
         order_id=order.order_id,
-        sender_id=order.sender_id,
         sender_informations=sender_info,
-        recipient_id=order.recipient_id,
-        sending_locker= sending_locker.locker_id,
-        receiving_locker= receiving_locker.locker_id,
+        sending_locker= sending_locker.address,
+        receiving_locker= receiving_locker.address,
         ordering_date=order.ordering_date,
         sending_date=order.sending_date,
         receiving_date=order.receiving_date,
@@ -443,8 +445,34 @@ def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(
     db.commit()
     return package_put
 
+#update order status by order id
+@router.put("/{order_id}/update_order_status")
+async def update_order_status(order_id: int, order: OrderStatus, db: Session = Depends(get_db)):
+    # First, find the order by order_id
+    existing_order = db.query(Order).filter(Order.order_id == order_id).first()
+    
+    if existing_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Check the current order status
+    if existing_order.order_status != "Packaging":
+        return {"Message": f"You can only cancel when Packaging"}
+    
+    # Update the order status to "Canceled"
+    existing_order.order_status = "Canceled"
+    
+    # Update other fields if necessary
+    for field, value in order.model_dump(exclude_unset=True, exclude_none=True).items():
+        setattr(existing_order, field, value)
+    
+    # Commit the changes to the database
+    db.commit()
+    
+    return {"Message": f"Order_id {order_id} is canceled"}
+
+
 #delete order bằng parcel_id
-@router.delete("/{order_id}")
+@router.delete("/{order_id}", dependencies=[Depends(check_admin)])
 def delete_order(order_id: int, db: Session = Depends(get_db)):
     order_delete = db.query(Order).filter(Order.order_id == order_id).first()
     #nếu order không được tìm thấy thì là not found
@@ -456,17 +484,21 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
     if parcel_to_delete:
         db.delete(parcel_to_delete)
+    cells_sending = db.query(Cell).filter(Cell.cell_id == order_delete.sending_cell_id).update({"occupied": False})
+    cells_recieved = db.query(Cell).filter(Cell.cell_id == order_delete.receiving_cell_id).update({"occupied": False})
+    if (cells_recieved != 1) or (cells_sending != 1):
+        raise HTTPException(status_code=404, detail=f"Cell not found, received:{cells_recieved}, sending:{cells_sending} ")
     db.delete(order_delete)
     db.commit()
     
     return {
-        "Message": "Order and parcel deleted"
+        "Message": f"Order {order_id} deleted"
     }
 
-# Get cell
-@router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
-def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
-    package = db.query(Order).filter(Order.locker_id == locker_id).filter(Order.parcel_id == parcel_id).first()
-    if not package:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return package
+# # Get cell
+# @router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
+# def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
+#     package = db.query(Order).filter(Order.locker_id == locker_id).filter(Order.parcel_id == parcel_id).first()
+#     if not package:
+#         raise HTTPException(status_code=404, detail="Order not found")
+#     return package
