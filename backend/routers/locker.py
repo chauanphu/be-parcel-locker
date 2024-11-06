@@ -8,7 +8,7 @@ from models.parcel import Parcel
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
-from auth.utils import get_current_user
+from auth.utils import get_current_user,check_admin
 from uuid import UUID
 from enum import Enum
 
@@ -80,17 +80,17 @@ class DensityResponse(BaseModel):
     density: float
     density_status: str
 
-@router.get("/{locker_id}", response_model=LockerResponse)
-async def get_locker(locker_id: int, db: Session = Depends(get_db)):
-    # Get locker by id
-    locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
-    # If not found, raise 404
-    if not locker:
-        raise HTTPException(status_code=404, detail="Locker not found")
-    return locker
+# @router.get("/{locker_id}", response_model=LockerResponse)
+# async def get_locker(locker_id: int, db: Session = Depends(get_db)):
+#     # Get locker by id
+#     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+#     # If not found, raise 404
+#     if not locker:
+#         raise HTTPException(status_code=404, detail="Locker not found")
+#     return locker
 
 #get locker by paging
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/lockers", response_model=Dict[str, Any],dependencies=[Depends(check_admin)])
 async def get_lockers_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
@@ -124,7 +124,7 @@ async def get_lockers_by_paging(
 
         total_pages = (total_lockers + per_page - 1) // per_page
         return {
-            "total": total_lockers,
+            "total_lockers": total_lockers,
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
@@ -132,7 +132,7 @@ async def get_lockers_by_paging(
         }
 
 #get cell by paging
-@router.get("/cells", response_model=Dict[str, Any])
+@router.get("/cells", response_model=Dict[str, Any],dependencies=[Depends(check_admin)])
 def get_cells_by_paging(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -157,7 +157,7 @@ def get_cells_by_paging(
         ]  
         total_pages = (total_cells + per_page - 1) // per_page
         return {
-            "total": total_cells,
+            "total_cells": total_cells,
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
@@ -165,9 +165,8 @@ def get_cells_by_paging(
         }
     
 
-@router.post("/")
+@router.post("/", dependencies=[Depends(check_admin)])
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
-
     find_locker = db.query(Locker).filter((Locker.latitude == locker.latitude)&(Locker.longitude == locker.longitude)).first()
 
     if find_locker == None:
@@ -180,7 +179,7 @@ async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db
     else:
         return {"Message: Locker existed!"}
 
-@router.post("/{locker_id}/cell", response_model=UUID)
+@router.post("/{locker_id}/cell", response_model=UUID,dependencies=[Depends(check_admin)])
 async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     
@@ -195,7 +194,7 @@ async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session 
     return cell.cell_id
 
 # Update locker by locker_id
-@router.put("/{locker_id}")
+@router.put("/{locker_id}",dependencies=[Depends(check_admin)])
 async def update_locker(locker_id: int, _locker: LockerUpdateRequest, db: Session = Depends(get_db)):
     # Update locker status, allow partial update
     db_locker = db.query(Locker).filter(Locker.locker_id == locker_id).update(_locker.model_dump(
@@ -212,7 +211,7 @@ async def update_locker(locker_id: int, _locker: LockerUpdateRequest, db: Sessio
     }
 
 # delete a locker
-@router.delete("/{locker_id}")
+@router.delete("/{locker_id}",dependencies=[Depends(check_admin)])
 def delete_locker(locker_id: int, db: Session = Depends(get_db)):
     locker_delete = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     

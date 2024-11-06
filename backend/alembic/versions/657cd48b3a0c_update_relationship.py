@@ -111,6 +111,11 @@ def downgrade() -> None:
     op.drop_constraint('account_email_unique', 'account', type_='unique')
     op.drop_constraint('role_foreign_key', 'account', type_='foreignkey')
     op.drop_constraint('order_sender_fkey', 'order', type_='foreignkey')
+    op.execute(
+        """
+        DELETE FROM role WHERE role_id IN (1, 2, 3);
+        """
+    )
     
 
     # ### end Alembic commands ###
