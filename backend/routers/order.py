@@ -33,6 +33,7 @@ class OrderStatusEnum(str, Enum):
     Ongoing = "Ongoing"
     Delayed = "Delayed"
     Expired = "Expired"
+    Packaging = "Packaging"
     
 class UpdateOrderStatusRequest(BaseModel):
     status: OrderStatusEnum
