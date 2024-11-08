@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # image: be-parcel:1.7.3
+    image: be-parcel:1.8.0
     restart: always
     ports:
       - "8000:8000"
@@ -30,15 +30,15 @@ services:
       - POSTGRES_DB=parcel
     volumes:
       - ./data:/var/lib/postgresql/data
-  pgadmin:
-    image: dpage/pgadmin4:7.7
-    ports:
-      - "5050:80"
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@example.com
-      - PGADMIN_DEFAULT_PASSWORD=admin123
-    depends_on:
-      - db
+  # pgadmin:
+  #   image: dpage/pgadmin4:7.7
+  #   ports:
+  #     - "5050:80"
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=admin@example.com
+  #     - PGADMIN_DEFAULT_PASSWORD=admin123
+  #   depends_on:
+  #     - db
 
   redis:
     image: redis:7.0-alpine
