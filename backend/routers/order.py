@@ -83,6 +83,17 @@ class OrderResponse(BaseModel):
     order_status: OrderStatusEnum
     # warnings: bool
 
+class OrderResponseFor1Order(BaseModel):
+    order_id: int
+    parcel: ParcelResponse
+    sender_informations: sender_informations
+    sending_address: str
+    receiving_address: str
+    ordering_date:date
+    sending_date: Optional[date] 
+    receiving_date: Optional[date]
+    order_status: OrderStatusEnum
+
 class OrderStatus(BaseModel):
     order_status: OrderStatusEnum
 
@@ -387,7 +398,7 @@ async def get_paging_order(
     }
 
 #GET order bằng order_id
-@router.get("/{order_id}", response_model=OrderResponse)
+@router.get("/{order_id}", response_model=OrderResponseFor1Order)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     query = join_order_parcel_cell(db)
     order = query.filter(Order.order_id == order_id).first()
@@ -415,11 +426,11 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
             weight = parcel.weight,
             parcel_size = parcel.parcel_size
     )
-    response = OrderResponse(
+    response = OrderResponseFor1Order(
         order_id=order.order_id,
         sender_informations=sender_info,
-        sending_locker= sending_locker.address,
-        receiving_locker= receiving_locker.address,
+        sending_address= sending_locker.address,
+        receiving_address= receiving_locker.address,
         ordering_date=order.ordering_date,
         sending_date=order.sending_date,
         receiving_date=order.receiving_date,
@@ -503,3 +514,66 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
 #     if not package:
 #         raise HTTPException(status_code=404, detail="Order not found")
 #     return package
+
+
+
+#get histoy order by paging
+@router.get("/history/order", response_model=Dict[str, Any])
+async def get_history_order(
+    db: Session = Depends(get_db),
+    current_user: Account = Depends(get_current_user),  # Get the current authenticated user
+    page: int = Query(1, ge=1),  # Current page number for orders
+    per_page: int = Query(10, ge=1),  # Number of orders per page
+):
+    # Filter orders by sender_id (current user)
+    query = db.query(Order).filter(Order.sender_id == current_user.user_id)
+    
+    # Calculate the total number of orders for the current user
+    total_orders = query.count()
+
+    # Fetch paginated list of orders
+    orders = query.offset((page - 1) * per_page).limit(per_page).all()
+    order_responses = []
+    for order in orders:
+        # Fetch sender profile
+        profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
+        parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
+        sending_locker = find_locker_by_cell(order.sending_cell_id, db)
+        receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
+        
+        # Create OrderResponse instance
+        response = OrderResponse(
+            order_id=order.order_id,
+            sender_id=order.sender_id,
+            sender_informations=sender_informations(
+                name=profile.name if profile else "",
+                phone=profile.phone if profile else "",
+                address=profile.address if profile else ""
+            ),
+            recipient_id=order.recipient_id,
+            sending_address=sending_locker.address,
+            receiving_address=receiving_locker.address,
+            ordering_date=order.ordering_date,
+            sending_date=order.sending_date,
+            receiving_date=order.receiving_date,
+            order_status=order.order_status,
+            parcel=ParcelResponse(
+                width=parcel.width,
+                length=parcel.length,
+                height=parcel.height,
+                weight=parcel.weight,
+                parcel_size=parcel.parcel_size
+            )
+        )
+        order_responses.append(response)
+    
+    # Calculate the total number of pages
+    total_pages = (total_orders + per_page - 1) // per_page
+    
+    return {
+        "total": total_orders,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "data": order_responses
+    }

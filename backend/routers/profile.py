@@ -53,7 +53,7 @@ class UserRequest(BaseModel):
 
 class CreateUserRequest(BaseModel):
     name: str
-    address: Address
+    address: str
     phone: str
     gender: GenderStatusEnum
     age: int
@@ -146,17 +146,11 @@ async def create_profile(user_id: int, _user: CreateUserRequest, db: Session = D
     if profile is not None:
         raise HTTPException(status_code=404, detail="Already has profile, please change to update profile")
     
-    user_data = _user.model_dump(exclude_unset=True, exclude_none=True)
-    user_data = _user.dict()
-    
-    address = _user.address
-    address_string = f" {address.address_number}, {address.street} Street, {address.ward} Ward, District/City {address.district}"
-    user_data['address'] = address_string
     
     new_account = Profile(
         user_id=user_id,
         name=_user.name,
-        address=user_data['address'],
+        address=_user.address,
         phone=_user.phone,
         gender=_user.gender,
         age=_user.age
