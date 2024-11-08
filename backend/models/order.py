@@ -20,23 +20,17 @@ class Order(Base):
 
     __tablename__ = 'order'
 
-    order_id = Column(Integer,primary_key=True, index=True) 
-    
-    # sender_id = Column(Integer, ForeignKey('profile.user_id'), nullable=False)
+    order_id = Column(Integer, primary_key=True, index=True)
     sender_id = Column(Integer, ForeignKey('profile.user_id'), nullable=False)
     recipient_id = Column(Integer, nullable=False)
-    
-    
     sending_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     receiving_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
-    
-    ordering_date = Column(Date,default=datetime.utcnow, nullable=False) 
+    ordering_date = Column(Date, default=datetime.utcnow, nullable=False)
     sending_date = Column(Date)
     receiving_date = Column(Date)
-    
     order_status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.Packaging)
     warnings = Column(Boolean, nullable=False, default=False)
-    
-    parcel = relationship('Parcel', backref= 'order',lazy=True, uselist=False)
-    
+
+    parcel = relationship('Parcel', backref='order', lazy=True, uselist=False)
+
 print("Order model created successfully.")

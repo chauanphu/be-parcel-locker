@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from database.session import get_db
 from models.locker import Locker, Cell
@@ -31,11 +31,11 @@ router = APIRouter(
 )
 
 class CellRequestCreate(BaseModel):
-    size: SizeEnum
+    size: str
+    quantity: int
 
 class CellResponse(BaseModel):
     cell_id: UUID   
-    occupied: bool
     size: SizeEnum
     date_created: datetime
     
@@ -116,7 +116,6 @@ async def get_lockers_by_paging(
                 "cells": [
                     {
                         "cell_id": cell.cell_id,
-                        "occupied": cell.occupied,
                         "size": cell.size
                     } for cell in cells
                 ]
@@ -148,7 +147,6 @@ def get_cells_by_paging(
             {
                 "locker_id": cell.locker_id,
                 "cell_id": cell.cell_id,
-                "occupied": cell.occupied,
                 "size": cell.size,
                 "date_created": cell.date_created,
                 
@@ -179,19 +177,26 @@ async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db
     else:
         return {"Message: Locker existed!"}
 
-@router.post("/{locker_id}/cell", response_model=UUID,dependencies=[Depends(check_admin)])
-async def create_cell(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
+@router.post("/{locker_id}/cell", status_code=status.HTTP_201_CREATED, dependencies=[Depends(check_admin)])
+async def create_cells(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     
     # Check if locker is inactive
     if locker is None or locker.locker_status == "Inactive":
         raise HTTPException(status_code=400, detail="This locker is inactive")
-    # Add new cell
-    cell = Cell(locker_id=locker_id, size=cell_info.size)
-    db.add(cell)
+    
+    # Add new cells
+    cells = []
+    for _ in range(cell_info.quantity):
+        cell = Cell(locker_id=locker_id, size=cell_info.size)
+        db.add(cell)
+        cells.append(cell)
+    
     db.commit()
-    db.refresh(cell)
-    return cell.cell_id
+    for cell in cells:
+        db.refresh(cell)
+    
+    return {"detail": "Cells created successfully"}
 
 # Update locker by locker_id
 @router.put("/{locker_id}",dependencies=[Depends(check_admin)])
@@ -244,35 +249,35 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
         "Message": "Locker deleted sucessfully"
     }
 
-# Get density of occupied cells by locker_id
-@router.get("/{locker_id}/size/{size}/density", response_model=DensityResponse)
-def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
+# # Get density of occupied cells by locker_id
+# @router.get("/{locker_id}/size/{size}/density", response_model=DensityResponse)
+# def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
     
-    # Get all cells in size in the locker
-    all_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size).count()
+#     # Get all cells in size in the locker
+#     all_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size).count()
     
-    # Get occupied cells of a specific size in the locker
-    occupied_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size, Cell.occupied == True).count()
+#     # Get occupied cells of a specific size in the locker
+#     occupied_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size, Cell.occupied == True).count()
     
-    # If no cells are found, raise 404
-    if all_cells_count == 0:
-        raise HTTPException(status_code=404, detail="Locker not found or no cells in the locker")
+#     # If no cells are found, raise 404
+#     if all_cells_count == 0:
+#         raise HTTPException(status_code=404, detail="Locker not found or no cells in the locker")
     
-    # Calculate the density of occupied cells
-    density = round((occupied_cells_count / all_cells_count), 2) * 100
+#     # Calculate the density of occupied cells
+#     density = round((occupied_cells_count / all_cells_count), 2) * 100
     
-    if density == int(DensityEnum.Full.value):
-        density_status = "Full"
-    elif density >= int(DensityEnum.Busy.value):
-        density_status = "Busy"
-    else:
-        density_status = "Free"
+#     if density == int(DensityEnum.Full.value):
+#         density_status = "Full"
+#     elif density >= int(DensityEnum.Busy.value):
+#         density_status = "Busy"
+#     else:
+#         density_status = "Free"
         
-    return DensityResponse(
-        locker_id = locker_id,
-        total_cells = all_cells_count,
-        occupied_cells = occupied_cells_count,
-        density = density,
-        density_status = density_status
-    )
+#     return DensityResponse(
+#         locker_id = locker_id,
+#         total_cells = all_cells_count,
+#         occupied_cells = occupied_cells_count,
+#         density = density,
+#         density_status = density_status
+#     )
     

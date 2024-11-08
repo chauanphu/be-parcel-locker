@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, VARCHAR,Enum,DateTime,ForeignKey
 from database.__init__ import Base
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 class Account(Base):
@@ -15,6 +16,7 @@ class Account(Base):
     status = Column(Enum('Active','Inactive', 'Blocked', name='account_status'), nullable=False,default='Active')
     Date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
     role = Column(Integer,ForeignKey('role.role_id'), nullable=False, default=2)
+    role_rel = relationship("Role", back_populates="accounts")
 
     
 print("Account model created successfully.")
