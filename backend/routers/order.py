@@ -218,84 +218,68 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     return user_recipient.recipient_id
 
 #tạo order
-@router.post("/", response_model=Token2) 
+@router.post("/", response_model=Token2)
 def create_order(order: OrderRequest, 
                  db: Session = Depends(get_db),
                  current_user: Account = Depends(get_current_user)):
     try:
-        # Convert order to dict and remove the parcel
         new_order_data = order.dict(exclude_none=True, exclude_unset=True)
         parcel_data = new_order_data.pop('parcel')
         sending_locker_id = new_order_data.pop('sending_locker_id')
         receiving_locker_id = new_order_data.pop('receiving_locker_id')
 
-        # Determine parcel size based on dimensions and weight
         size_options = determine_parcel_size(parcel_data['length'], parcel_data['width'], parcel_data['height'], parcel_data['weight'])
 
-        # Query the available cell in the sending locker
         sending_cell, final_size = find_available_cell(sending_locker_id, size_options, db)
         if not sending_cell:
             raise HTTPException(status_code=400, detail="No available cells in the sending locker")
         
-        logging.debug(f"Found sending cell: {sending_cell.cell_id}")
-        change_cell_occupied(sending_cell.cell_id, True, db)
-  
-       # Query the available cell in the receiving locker
+        # change_cell_occupied(sending_cell.cell_id, True, db)
+
         receiving_cell, _ = find_available_cell(receiving_locker_id, [final_size], db)
         if not receiving_cell:
-            # Free up the sending cell if the receiving cell is not available
             change_cell_occupied(sending_cell.cell_id, False, db)
             raise HTTPException(status_code=400, detail="No available cells in the receiving locker")
         
-        logging.debug(f"Found receiving cell: {receiving_cell.cell_id}")
-        change_cell_occupied(receiving_cell.cell_id, True, db)
-        
-        # Get recipient_id based on recipient information
+        # change_cell_occupied(receiving_cell.cell_id, True, db)
+
         recipient_data = order.recipient_id
         recipient_id = get_user_id_by_recipient_info(db, recipient_data.email, recipient_data.phone, recipient_data.name)
-        
-         # Add sender_id to order data
-        new_order_data['sender_id'] = current_user.user_id
-        new_order_data['recipient_id'] = recipient_id
 
-        # Update the order with the cell IDs
-        new_order_data['sending_cell_id'] = sending_cell.cell_id
-        new_order_data['receiving_cell_id'] = receiving_cell.cell_id
+        new_order_data.update({
+            'sender_id': current_user.user_id,
+            'recipient_id': recipient_id,
+            'sending_cell_id': sending_cell.cell_id,
+            'receiving_cell_id': receiving_cell.cell_id
+        })
+
         new_order = Order(**new_order_data)
         db.add(new_order)
         db.commit()
         db.refresh(new_order)
 
-        # Create the parcel record
-        parcel_data['parcel_size'] = final_size
-        parcel_data['parcel_id'] = new_order.order_id
+        parcel_data.update({
+            'parcel_size': final_size,
+            'parcel_id': new_order.order_id
+        })
         new_parcel = Parcel(**parcel_data)
         db.add(new_parcel)
         db.commit()
-        
-        # Convert cell_id to string for Redis
-        order_id = str(new_order.order_id)
-        sending_cell_id = str(sending_cell.cell_id)
-        receiving_cell_id = str(receiving_cell.cell_id)
-        receiving_locker_id = str(receiving_locker_id)
-        sending_locker_id = str(sending_locker_id)
 
-        # Save the order data to Redis
+        order_id = str(new_order.order_id)
         redis_client.hmset(f"order:{order_id}", {
-            "sending_locker_id": sending_locker_id,
-            "receiving_locker_id": receiving_locker_id,
-            "sending_cell_id": sending_cell_id,
-            "receiving_cell_id": receiving_cell_id
+            "sending_locker_id": str(sending_locker_id),
+            "receiving_locker_id": str(receiving_locker_id),
+            "sending_cell_id": str(sending_cell.cell_id),
+            "receiving_cell_id": str(receiving_cell.cell_id)
         })
 
-        # Return the newly created order with the parcel size for OrderResponse
-        return {
-            "order_id": new_order.order_id,
-            "message": 'Successfully created',
-            "parcel_size": final_size,
-            "sender_id": current_user.user_id  
-
-        }
+        return Token2(
+            order_id=new_order.order_id,
+            message="Order created successfully",
+            parcel_size=final_size,
+            sender_id=current_user.user_id
+        )
     except HTTPException as e:
         db.rollback()
         raise e
@@ -467,11 +451,11 @@ async def update_order_status(order_id: int, order: OrderStatus, db: Session = D
         raise HTTPException(status_code=404, detail="Order not found")
     
     # Check the current order status
-    if existing_order.order_status != "Packaging":
+    if existing_order.order_status != OrderStatusEnum.Packaging:
         return {"Message": f"You can only cancel when Packaging"}
     
     # Update the order status to "Canceled"
-    existing_order.order_status = "Canceled"
+    existing_order.order_status = OrderStatusEnum.Canceled
     
     # Update other fields if necessary
     for field, value in order.model_dump(exclude_unset=True, exclude_none=True).items():
