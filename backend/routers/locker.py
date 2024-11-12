@@ -27,7 +27,6 @@ class LockerStatusEnum(str, Enum):
 router = APIRouter(
     prefix="/locker",
     tags=["locker"],
-    dependencies=[Depends(get_current_user)]
 )
 
 class CellRequestCreate(BaseModel):
@@ -130,7 +129,7 @@ async def get_lockers_by_paging(
             "data": locker_responses
         }
 
-#get cell by paging
+#get cells ids by paging
 @router.get("/cells", response_model=Dict[str, Any],dependencies=[Depends(check_admin)])
 def get_cells_by_paging(
     db: Session = Depends(get_db),
@@ -162,6 +161,27 @@ def get_cells_by_paging(
             "data": cell_responses
         }
     
+# Get cells of a locker
+@router.get("/{locker_id}/cells")
+async def get_cells_by_locker_id(locker_id: int, db: Session = Depends(get_db)):
+    # Get locker by id
+    locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+    # If not found, raise 404
+    if not locker:
+        raise HTTPException(status_code=404, detail="Locker not found")
+    
+    # Get cells of the locker
+    cells = db.query(Cell).filter(Cell.locker_id == locker_id).all()
+    cell_responses = [
+        {
+            "cell_id": cell.cell_id,
+            "size": cell.size,
+            "date_created": cell.date_created
+        }
+        for cell in cells
+    ]
+    
+    return cell_responses
 
 @router.post("/", dependencies=[Depends(check_admin)])
 async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db)):
@@ -176,6 +196,31 @@ async def create_locker(locker: LockerInfoResponse, db: Session = Depends(get_db
         return locker.locker_id
     else:
         return {"Message: Locker existed!"}
+
+@router.get("/{locker_id}/available_cells", response_model=List[CellIDResponse])
+async def get_available_cells(locker_id: int, db: Session = Depends(get_db)):
+    # Get locker by id
+    locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
+    # If not found, raise 404
+    if not locker:
+        raise HTTPException(status_code=404, detail="Locker not found")
+    
+    # Get all cells of the locker
+    cells = db.query(Cell).filter(Cell.locker_id == locker_id).all()
+    # Get all orders of the locker
+    orders = db.query(Order).filter(Order.sending_cell_id != None).filter(Order.receiving_cell_id == None).all()
+    # Get all sending cells
+    sending_cells = [order.sending_cell_id for order in orders]
+    # Get all available cells
+    available_cells = [cell for cell in cells if cell.cell_id not in sending_cells]
+    
+    return [
+        {
+            "cell_id": cell.cell_id,
+            "is_sending": False
+        }
+        for cell in available_cells
+    ]
 
 @router.post("/{locker_id}/cell", status_code=status.HTTP_201_CREATED, dependencies=[Depends(check_admin)])
 async def create_cells(locker_id: int, cell_info: CellRequestCreate, db: Session = Depends(get_db)):
@@ -248,36 +293,3 @@ def delete_locker(locker_id: int, db: Session = Depends(get_db)):
     return {
         "Message": "Locker deleted sucessfully"
     }
-
-# # Get density of occupied cells by locker_id
-# @router.get("/{locker_id}/size/{size}/density", response_model=DensityResponse)
-# def get_density(locker_id: int, size: SizeEnum, db: Session = Depends(get_db)):
-    
-#     # Get all cells in size in the locker
-#     all_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size).count()
-    
-#     # Get occupied cells of a specific size in the locker
-#     occupied_cells_count = db.query(Cell).filter(Cell.locker_id == locker_id, Cell.size == size, Cell.occupied == True).count()
-    
-#     # If no cells are found, raise 404
-#     if all_cells_count == 0:
-#         raise HTTPException(status_code=404, detail="Locker not found or no cells in the locker")
-    
-#     # Calculate the density of occupied cells
-#     density = round((occupied_cells_count / all_cells_count), 2) * 100
-    
-#     if density == int(DensityEnum.Full.value):
-#         density_status = "Full"
-#     elif density >= int(DensityEnum.Busy.value):
-#         density_status = "Busy"
-#     else:
-#         density_status = "Free"
-        
-#     return DensityResponse(
-#         locker_id = locker_id,
-#         total_cells = all_cells_count,
-#         occupied_cells = occupied_cells_count,
-#         density = density,
-#         density_status = density_status
-#     )
-    

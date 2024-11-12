@@ -498,7 +498,6 @@ async def update_order_status(order_id: int, order: OrderStatus, db: Session = D
     
     return {"Message": f"Order_id {order_id} is canceled"}
 
-
 #delete order bằng parcel_id
 @router.delete("/{order_id}", dependencies=[Depends(check_admin)])
 def delete_order(order_id: int, db: Session = Depends(get_db)):
@@ -522,16 +521,6 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     return {
         "Message": f"Order {order_id} deleted"
     }
-
-# # Get cell
-# @router.get("/{locker_id}/{parcel_id}", response_model=OrderRequest)
-# def get_cell(locker_id: str, parcel_id: int, db: Session = Depends(get_db)):
-#     package = db.query(Order).filter(Order.locker_id == locker_id).filter(Order.parcel_id == parcel_id).first()
-#     if not package:
-#         raise HTTPException(status_code=404, detail="Order not found")
-#     return package
-
-
 
 #get histoy order by paging
 @router.get("/history/order", response_model=Dict[str, Any])
