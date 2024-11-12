@@ -58,14 +58,14 @@ class BaseSenderInfo(BaseModel):
 class UpdateOrderStatus(BaseModel):
     status: OrderStatusEnum
 
-class Recipient(BaseModel):
+class RecipientInfo(BaseModel):
     email: EmailStr
     name: str
     phone: str
 
 class OrderRequest(BaseModel):
     parcel: Optional[BaseParcel]
-    recipient_id: Optional[Recipient]
+    recipient_id: Optional[RecipientInfo]
     sending_locker_id: Optional[int]
     receiving_locker_id: Optional[int]
 
@@ -118,7 +118,7 @@ def find_available_cell(locker_id: int, size_options: List[str], db: Session):
                 return cell, size
     return None, None
 
-def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session):
+def change_cell_occupied(cell_id: uuid.UUID, occupied: bool, db: Session):
     """
     Changes the occupied status of the specified cell.
     Parameters:
@@ -137,7 +137,7 @@ def change_cell_occupied(cell_id: uuid, occupied: bool, db: Session):
     else:
         logging.error(f"Cell with id {cell_id} not found")
 
-def find_locker_by_cell(cell_id: uuid, db: Session = Depends(get_db)):
+def find_locker_by_cell(cell_id: uuid.UUID, db: Session = Depends(get_db)):
     """
     Finds the locker that contains the specified cell.
 
@@ -183,12 +183,14 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
             )
             db.add(recipient)
             db.commit()
-            return recipient.recipient_id
+            return recipient.recipient_id.value
         else:
-            return recipient_query.recipient_id
+            return recipient_query.recipient_id.value
         
     #if the user already in the database, create a recipient with that user_id 
     profile = db.query(Profile).filter(Profile.user_id == user.user_id).first()
+    if profile is None:
+        raise HTTPException(status_code=400, detail="User profile not found")
     user_recipient = Recipient(
         name = profile.name,
         phone = profile.phone,
@@ -197,7 +199,7 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     )
     db.add(user_recipient)
     db.commit()
-    return user_recipient.recipient_id
+    return user_recipient.recipient_id.value
 
 #tạo order
 @router.post("/", response_model=OrderActionResponse)
@@ -315,7 +317,7 @@ def unlock_cell(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     # Find the locker_id
-    locker_id = order.get("sending_locker_id")
+    locker_id = order[b"sending_locker_id"].decode("utf-8")
     # Generate OTP code
     otp = random.randint(100000, 999999)
     redis_client.setex(f"otp:{order_id}", 300, otp)
@@ -325,14 +327,14 @@ def unlock_cell(order_id: int, db: Session = Depends(get_db)):
     return {"message": "QR code generated successfully"}
 
 @router.post("/verify_qr")
-def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
+async def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
     # Find the order_id in the redis
     order = redis_client.hgetall(f"order:{order_id}")
     
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     # Get the OTP code from redis
-    stored_otp = redis_client.get(f"otp:{order_id}")
+    stored_otp = await redis_client.get(f"otp:{order_id}")
     if not stored_otp:
         raise HTTPException(status_code=400, detail="OTP code not found or expired")
     if int(stored_otp) != otp:
