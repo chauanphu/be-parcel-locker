@@ -3,11 +3,9 @@ from pydantic import BaseModel, EmailStr, Field
 from models.account import Account
 from database.session import get_db
 from models.shipper import Shipper
-from models.order import Order
-from models.locker import Locker, Cell
 from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional
-from auth.utils import get_current_user, bcrypt_context
+from auth.utils import get_current_user, hash_password
 from starlette import status
 
 router = APIRouter(
@@ -49,7 +47,7 @@ async def create_shipper(create_shipper_request: CreateShipperSchema, db: Sessio
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Username or email already exists')
     
     # Hash the password
-    hashed_password = bcrypt_context.hash(create_shipper_request.password)
+    hashed_password = hash_password(create_shipper_request.password)
     
     # Create new account with role = 3 (Shipper)
     new_account = Account(

@@ -6,7 +6,7 @@ from database.session import get_db
 from models.profile import Profile
 from models.account import Account
 from sqlalchemy.orm import Session
-from auth.utils import get_current_user,bcrypt_context,check_admin
+from auth.utils import get_current_user, check_admin, hash_password
 from starlette import status
 from enum import Enum
 from decouple import config
@@ -25,11 +25,6 @@ router = APIRouter(
     prefix="/account",
     tags=["account"],
     dependencies=[Depends(get_current_user)]
-)
-
-public_router = APIRouter(
-    prefix="/account",
-    tags=["account"]
 )
 
 class AddressModel(BaseModel):
@@ -236,7 +231,7 @@ async def create_user_account(
     Raises:
         HTTPException: If email or username already exists
     """
-    account.password = bcrypt_context.hash(account.password)
+    account.password = hash_password(account.password)
     check_user_email = db.query(Account).filter(Account.email == account.email).first()
     if check_user_email is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The email already exists")
