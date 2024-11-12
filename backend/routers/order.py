@@ -13,7 +13,7 @@ from models.recipient import Recipient
 from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
-from routers.parcel import ParcelRequest, Parcel 
+from routers.parcel import Parcel 
 from models.profile import Profile
 
 from utils.mqtt import locker_client
@@ -34,76 +34,63 @@ class OrderStatusEnum(str, Enum):
     Delayed = "Delayed"
     Expired = "Expired"
     Packaging = "Packaging"
-    
-class UpdateOrderStatusRequest(BaseModel):
+
+class BaseParcel(BaseModel):
+    width: int
+    length: int
+    height: int
+    weight: int
+    parcel_size: Optional[str] = None
+
+class BaseOrderInfo(BaseModel):
+    sending_address: str
+    receiving_address: str
+    ordering_date: date
+    sending_date: Optional[date]
+    receiving_date: Optional[date]
+    order_status: OrderStatusEnum
+
+class BaseSenderInfo(BaseModel):
+    name: Optional[str]
+    phone: Optional[str]
+    address: Optional[str]
+
+class UpdateOrderStatus(BaseModel):
     status: OrderStatusEnum
-    
-class ParcelResponse(BaseModel):
-    width: int
-    length: int
-    height: int
-    weight: int
-    parcel_size: str
 
-class ParcelRequest(BaseModel):
-    length: int
-    width: int
-    height: int
-    weight: int
-    # parcel_size: str
-
-class RecipientRequest(BaseModel):
+class Recipient(BaseModel):
     email: EmailStr
     name: str
     phone: str
-    
+
 class OrderRequest(BaseModel):
-    parcel: Optional[ParcelRequest]
-    # sender_id: int
-    recipient_id: Optional[RecipientRequest]
+    parcel: Optional[BaseParcel]
+    recipient_id: Optional[Recipient]
     sending_locker_id: Optional[int]
     receiving_locker_id: Optional[int]
-    
-class sender_informations(BaseModel):
-    name : Optional[str]
-    phone : Optional[str]
-    address : Optional[str]
 
-class OrderResponse(BaseModel):
+class OrderResponse(BaseOrderInfo):
     order_id: int
-    parcel: ParcelResponse
+    parcel: BaseParcel
     sender_id: int
-    sender_informations: sender_informations
+    sender_information: BaseSenderInfo
     recipient_id: int
-    sending_address: str
-    receiving_address: str
-    ordering_date:date
-    sending_date: Optional[date] 
-    receiving_date: Optional[date]
-    order_status: OrderStatusEnum
-    # warnings: bool
 
-class OrderResponseFor1Order(BaseModel):
+class OrderResponseSingle(BaseOrderInfo):
     order_id: int
-    parcel: ParcelResponse
-    sender_informations: sender_informations
-    sending_address: str
-    receiving_address: str
-    ordering_date:date
-    sending_date: Optional[date] 
-    receiving_date: Optional[date]
-    order_status: OrderStatusEnum
+    parcel: BaseParcel
+    sender_information: BaseSenderInfo
 
 class OrderStatus(BaseModel):
     order_status: OrderStatusEnum
 
-class Token2(BaseModel):
+class OrderActionResponse(BaseModel):
     order_id: int
     message: str
     parcel_size: str
-    sender_id: int  # Add sender_id here
+    sender_id: int
 
-class CompletedOrderResponse(BaseModel):
+class CompletedOrder(BaseModel):
     order_id: int
     recipient_id: int   
     sending_date: Optional[date]
@@ -213,7 +200,7 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
     return user_recipient.recipient_id
 
 #tạo order
-@router.post("/", response_model=Token2)
+@router.post("/", response_model=OrderActionResponse)
 def create_order(order: OrderRequest, 
                  db: Session = Depends(get_db),
                  current_user: Account = Depends(get_current_user)):
@@ -294,7 +281,7 @@ def create_order(order: OrderRequest,
         db.commit()
         pipeline.execute()
 
-        return Token2(
+        return OrderActionResponse(
             order_id=new_order.order_id,
             message="Order created successfully",
             parcel_size=final_size,
@@ -383,7 +370,7 @@ async def get_paging_order(
         response = OrderResponse(
             order_id=order.order_id,
             sender_id=order.sender_id,
-            sender_informations=sender_informations(
+            sender_information=BaseSenderInfo(
                 name = profile.name if profile else "",
                 phone = profile.phone if profile else "",
                 address = profile.address if profile else ""
@@ -395,7 +382,7 @@ async def get_paging_order(
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel = ParcelResponse(
+            parcel = BaseParcel(
             width = parcel.width,
             length = parcel.length,
             height = parcel.height,
@@ -414,7 +401,7 @@ async def get_paging_order(
     }
 
 #GET order bằng order_id
-@router.get("/{order_id}", response_model=OrderResponseFor1Order)
+@router.get("/{order_id}", response_model=OrderResponseSingle)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     query = join_order_parcel_cell(db)
     order = query.filter(Order.order_id == order_id).first()
@@ -426,25 +413,23 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     # Extract and convert data
     sending_locker = find_locker_by_cell(order.sending_cell_id, db)
     receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
-  
-    
-    
-    sender_info = sender_informations(
+
+    sender_info = BaseSenderInfo(
         name=profile.name if profile else "",
         phone=profile.phone if profile else "",
         address=profile.address if profile else ""
     )
     
-    parcel_info = ParcelResponse(
+    parcel_info = BaseParcel(
             width = parcel.width,
             length = parcel.length,
             height = parcel.height,
             weight = parcel.weight,
             parcel_size = parcel.parcel_size
     )
-    response = OrderResponseFor1Order(
+    response = OrderResponseSingle(
         order_id=order.order_id,
-        sender_informations=sender_info,
+        sender_information=sender_info,
         sending_address= sending_locker.address,
         receiving_address= receiving_locker.address,
         ordering_date=order.ordering_date,
@@ -474,8 +459,11 @@ def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(
     return package_put
 
 #update order status by order id
-@router.put("/{order_id}/update_order_status")
-async def update_order_status(order_id: int, order: OrderStatus, db: Session = Depends(get_db)):
+@router.put(
+    "/{order_id}",
+    summary="Update order status",
+    )
+async def update_order_status(order_id: int, order_status: OrderStatusEnum, db: Session = Depends(get_db)):
     # First, find the order by order_id
     existing_order = db.query(Order).filter(Order.order_id == order_id).first()
     
@@ -484,13 +472,13 @@ async def update_order_status(order_id: int, order: OrderStatus, db: Session = D
     
     # Check the current order status
     if existing_order.order_status != OrderStatusEnum.Packaging:
-        return {"Message": f"You can only cancel when Packaging"}
+        return HTTPException(status_code=400, detail="Order status cannot be updated")
     
     # Update the order status to "Canceled"
     existing_order.order_status = OrderStatusEnum.Canceled
     
     # Update other fields if necessary
-    for field, value in order.model_dump(exclude_unset=True, exclude_none=True).items():
+    for field, value in order_status.model_dump(exclude_unset=True, exclude_none=True).items():
         setattr(existing_order, field, value)
     
     # Commit the changes to the database
@@ -505,9 +493,6 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     #nếu order không được tìm thấy thì là not found
     if not order_delete:
         raise HTTPException(status_code=404, detail="Order not found")
-    #nếu xóa rồi mà quên xong xóa thêm lần nữa thì hiện ra là k tồn tại
-    if order_delete == None:
-        raise HTTPException(status_code=404, detail="Order not exist")
     parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
     if parcel_to_delete:
         db.delete(parcel_to_delete)
@@ -550,7 +535,7 @@ async def get_history_order(
         response = OrderResponse(
             order_id=order.order_id,
             sender_id=order.sender_id,
-            sender_informations=sender_informations(
+            sender_information=BaseSenderInfo(
                 name=profile.name if profile else "",
                 phone=profile.phone if profile else "",
                 address=profile.address if profile else ""
@@ -562,7 +547,7 @@ async def get_history_order(
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel=ParcelResponse(
+            parcel=BaseParcel(
                 width=parcel.width,
                 length=parcel.length,
                 height=parcel.height,

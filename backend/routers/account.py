@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from auth.utils import get_current_user,bcrypt_context,check_admin
 from starlette import status
 from enum import Enum
-from jose import JWTError, jwt
 from decouple import config
 import random
 
@@ -33,35 +32,35 @@ public_router = APIRouter(
     tags=["account"]
 )
 
-class Address(BaseModel):
+class AddressModel(BaseModel):
     address_number: str
     street: str
     ward: str
     district: str
 
 
-class CreateUserRequest(BaseModel):
+class CreateUserRequestModel(BaseModel):
     email: EmailStr
     username: str
     password: str = Field(..., min_length=6)
 
 
-class CreateAdminRequest(BaseModel):
+class CreateAdminRequestModel(BaseModel):
     email: str
     username: str
     password: str
     role: int
 
-class UserResponse(BaseModel):
+class UserResponseModel(BaseModel):
     user_id: int
     name: str
     email: str
     phone: str
     address: str
     status: StatusEnum
-    Date_created: datetime
+    date_created: datetime
     role: int
-class RegisterUserRequest(BaseModel):
+class RegisterUserRequestModel(BaseModel):
     username: str
     email: EmailStr
     password: str = Field(..., min_length=6)
@@ -163,12 +162,26 @@ pending_users = {} # For pending users
 #     return {"message": "Email confirmed and user registered successfully"}
 
 
-@router.get("/accounts", response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
-def get_paging_accounts(
+@router.get(
+    "/",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(check_admin)]
+)
+async def get_accounts_list(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1)
 ):
+    """
+    Get paginated list of accounts.
+    
+    Args:
+        page: Page number (starts from 1)
+        per_page: Number of items per page
+        
+    Returns:
+        Paginated list of accounts with total count and page information
+    """
     # Total number of accounts
     total_accounts = db.query(Account).count()
 
@@ -202,8 +215,27 @@ def get_paging_accounts(
         "data": account_responses
     }
 
-@router.post("/create_account_for_user")
-async def create_account_user(account: CreateUserRequest, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=int,
+    status_code=status.HTTP_201_CREATED
+)
+async def create_user_account(
+    account: CreateUserRequestModel,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new user account.
+    
+    Args:
+        account: User account creation details
+        
+    Returns:
+        Newly created user ID
+        
+    Raises:
+        HTTPException: If email or username already exists
+    """
     account.password = bcrypt_context.hash(account.password)
     check_user_email = db.query(Account).filter(Account.email == account.email).first()
     if check_user_email is not None:
@@ -219,8 +251,27 @@ async def create_account_user(account: CreateUserRequest, db: Session = Depends(
     db.refresh(new_account)
     return new_account.user_id
 
-@router.delete("/delete_account", dependencies=[Depends(check_admin)])
-async def delete_account_user(user_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(check_admin)]
+)
+async def delete_user_account(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a user account and associated profile.
+    
+    Args:
+        user_id: ID of the user to delete
+        
+    Returns:
+        Success message
+        
+    Raises:
+        HTTPException: If account doesn't exist or is an admin account
+    """
     acc = db.query(Account).filter(Account.user_id == user_id).first()
     if acc is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no account")
@@ -240,4 +291,3 @@ async def delete_account_user(user_id: int, db: Session = Depends(get_db)):
     return {
         "Message": "Account deleted sucessfully"
     }
-    
