@@ -36,5 +36,5 @@ def downgrade() -> None:
                type_=postgresql.ENUM('Completed', 'Canceled', 'Ongoing', 'Delayed', 'Expired', 'Packaging', name='order_status'),
                existing_nullable=False,
                existing_server_default=sa.text("'Packaging'::order_status"))
-    op.add_column('cell', sa.Column('occupied', sa.BOOLEAN(), autoincrement=False, nullable=False))
+    op.add_column('cell', sa.Column('occupied', sa.BOOLEAN(), autoincrement=False, nullable=False, default=False))
     # ### end Alembic commands ###

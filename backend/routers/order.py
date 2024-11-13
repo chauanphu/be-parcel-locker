@@ -63,11 +63,11 @@ class RecipientInfo(BaseModel):
     name: str
     phone: str
 
-class OrderRequest(BaseModel):
-    parcel: Optional[BaseParcel]
-    recipient_id: Optional[RecipientInfo]
-    sending_locker_id: Optional[int]
-    receiving_locker_id: Optional[int]
+class OrderCreate(BaseModel):
+    parcel: BaseParcel
+    recipient: RecipientInfo
+    sending_locker_id: int
+    receiving_locker_id: int
 
 class OrderResponse(BaseOrderInfo):
     order_id: int
@@ -102,40 +102,24 @@ def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int, size_options: List[str], db: Session):
+def find_available_cell(locker_id: int, size_option: str, db: Session) -> tuple[Cell, str] | tuple[None, None]:
     """
     Finds an available cell using Redis for availability tracking
     """
-    for size in size_options:
-        cells = db.query(Cell).filter(
-            Cell.locker_id == locker_id,
-            Cell.size == size
-        ).all()
-        
-        for cell in cells:
-            # Check Redis for cell availability
-            if not redis_client.get(f"cell:{cell.cell_id}:occupied"):
-                return cell, size
+    # 1. Get all cells used by orders that is not completed
+    used_cells = set()
+    orders = db.query(Order).filter(Order.order_status != OrderStatusEnum.Completed).all()
+    used_cells.update(order.sending_cell_id for order in orders)
+    used_cells.update(order.receiving_cell_id for order in orders)
+
+    available_cell = db.query(Cell).filter(
+        Cell.locker_id == locker_id,
+        Cell.size == size_option,
+        Cell.cell_id.notin_(used_cells)
+        ).first()
+    if available_cell:
+        return available_cell
     return None, None
-
-def change_cell_occupied(cell_id: uuid.UUID, occupied: bool, db: Session):
-    """
-    Changes the occupied status of the specified cell.
-    Parameters:
-    - cell_id (uuid): The ID of the cell to change the status of.
-    - occupied (bool): The new occupied status of the cell.
-    - db (Session): The database session to use for the query.
-
-    Returns:
-    - Cell: The updated cell.
-    """
-    cell = db.query(Cell).filter(Cell.cell_id == cell_id).first()
-    if cell:
-        logging.debug(f"Changing cell {cell_id} occupied status to {occupied}")
-        cell.occupied = occupied
-        db.commit()
-    else:
-        logging.error(f"Cell with id {cell_id} not found")
 
 def find_locker_by_cell(cell_id: uuid.UUID, db: Session = Depends(get_db)):
     """
@@ -151,23 +135,31 @@ def find_locker_by_cell(cell_id: uuid.UUID, db: Session = Depends(get_db)):
     query = db.query(Locker).filter(Locker.cells.any(Cell.cell_id == cell_id)).first()
     return query
 
-def to_dict(model_instance):
-    data = model_instance.__dict__.copy()
-    data.pop('_sa_instance_state', None)
-    return data
+class Size:
+    def __init__(self, width: float, length: float, height: float, weight: float):
+        self.width = width
+        self.length = length
+        self.height = height
+        self.weight = weight
 
-def determine_parcel_size(length: int, width: int, height: int, weight: int) -> List[str]:
-    size_options = []
-    if length*width*height <= 13*15*30:     #lenght is 13, widht is 15, height is 30
-        size_options.append("S")
-    if length*width*height <= 23*15*30:     #lenght is 23, widht is 15, height is 30
-        size_options.append("M")
-    if length*width*height <= 33*20*30:     #lenght is 33, widht is 20, height is 30
-        size_options.append("L")
-    if not size_options:
-        raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
-    return size_options
- 
+    def isFit(self, width: float, length: float, height: float, weight: float):
+        return self.width >= width and self.length >= length and self.height >= height and self.weight >= weight
+
+# Define the available parcel sizes: S, M, L
+# Width, length, height, weight
+SizeS = Size(13, 15, 30, 5)
+SizeM = Size(23, 15, 30, 10)
+SizeL = Size(33, 20, 30, 15)
+
+def determine_parcel_size(length: int, width: int, height: int, weight: int) -> str:
+    if SizeS.isFit(width, length, height, weight):
+        return "S"
+    if SizeM.isFit(width, length, height, weight):
+        return "M"
+    if SizeL.isFit(width, length, height, weight):
+        return "L"
+    raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
+
 def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str) -> int:
     # Query the user by email
     user = db.query(Account).filter(Account.email == email).first()
@@ -203,7 +195,7 @@ def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str
 
 #tạo order
 @router.post("/", response_model=OrderActionResponse)
-def create_order(order: OrderRequest, 
+def create_order(order: OrderCreate, 
                  db: Session = Depends(get_db),
                  current_user: Account = Depends(get_current_user)):
     sending_cell = None
@@ -211,12 +203,11 @@ def create_order(order: OrderRequest,
     pipeline = None
     
     try:
-        new_order_data = order.dict(exclude_none=True, exclude_unset=True)
-        parcel_data = new_order_data.pop('parcel')
-        sending_locker_id = int(new_order_data.pop('sending_locker_id'))
-        receiving_locker_id = int(new_order_data.pop('receiving_locker_id'))
+        parcel_data = order.parcel
+        sending_locker_id = order.sending_locker_id
+        receiving_locker_id = order.receiving_locker_id
 
-        size_options = determine_parcel_size(
+        size_option = determine_parcel_size(
             parcel_data['length'], 
             parcel_data['width'], 
             parcel_data['height'], 
@@ -226,49 +217,18 @@ def create_order(order: OrderRequest,
         # Start Redis transaction
         pipeline = redis_client.pipeline()
 
-        sending_cell, final_size = find_available_cell(sending_locker_id, size_options, db)
+        sending_cell = find_available_cell(sending_locker_id, size_option, db)
+        receiving_cell = find_available_cell(receiving_locker_id, size_option, db)
+
         if not sending_cell:
             raise HTTPException(status_code=400, detail="No available cells in sending locker")
-
-        # Mark sending cell as occupied in Redis with string conversion
-        pipeline.setex(f"cell:{str(sending_cell.cell_id)}:occupied", 86400, "1")
-
-        receiving_cell, _ = find_available_cell(receiving_locker_id, [final_size], db)
         if not receiving_cell:
-            if pipeline:
-                pipeline.delete(f"cell:{str(sending_cell.cell_id)}:occupied")
-                pipeline.execute()
             raise HTTPException(status_code=400, detail="No available cells in receiving locker")
-
-        # Mark receiving cell as occupied in Redis with string conversion
-        pipeline.setex(f"cell:{str(receiving_cell.cell_id)}:occupied", 86400, "1")
-
-        recipient_data = order.recipient_id
-        recipient_id = get_user_id_by_recipient_info(
-            db, 
-            recipient_data.email, 
-            recipient_data.phone, 
-            recipient_data.name
-        )
-
-        new_order_data.update({
-            'sender_id': current_user.user_id,
-            'recipient_id': recipient_id,
-            'sending_cell_id': sending_cell.cell_id,
-            'receiving_cell_id': receiving_cell.cell_id,
-            'order_status': OrderStatusEnum.Packaging
-        })
-
-        new_order = Order(**new_order_data)
+        
+        new_order = Order(**order)
+        new_order.parcel = Parcel(**parcel_data)
         db.add(new_order)
-        db.flush()  # Get order_id without committing
-
-        parcel_data.update({
-            'parcel_size': final_size,
-            'parcel_id': new_order.order_id
-        })
-        new_parcel = Parcel(**parcel_data)
-        db.add(new_parcel)
+        db.commit()
 
         # Cache order data in Redis with string conversion for all values
         order_cache_data = {
@@ -276,34 +236,23 @@ def create_order(order: OrderRequest,
             "receiving_locker_id": receiving_locker_id,
             "sending_cell_id": str(sending_cell.cell_id),
             "receiving_cell_id": str(receiving_cell.cell_id),
-            "status": OrderStatusEnum.Packaging.value  # Convert enum to string
+            "status": OrderStatusEnum.Packaging.value,  # Convert enum to string
+            "latitude": 0.0,
+            "longitude": 0.0,
         }
         pipeline.hmset(f"order:{new_order.order_id}", order_cache_data)
-
-        db.commit()
         pipeline.execute()
 
         return OrderActionResponse(
             order_id=new_order.order_id,
             message="Order created successfully",
-            parcel_size=final_size,
+            parcel_size=size_option,
             sender_id=current_user.user_id
         )
 
     except Exception as e:
         db.rollback()
         # Cleanup Redis if error occurs
-        if sending_cell or receiving_cell:
-            try:
-                redis_client.delete(
-                    *(key for key, val in {
-                        f"cell:{str(sending_cell.cell_id)}:occupied": sending_cell,
-                        f"cell:{str(receiving_cell.cell_id)}:occupied": receiving_cell
-                    }.items() if val is not None)
-                )
-            except Exception as redis_error:
-                logging.error(f"Redis cleanup error: {redis_error}")
-        
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
@@ -444,21 +393,21 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     return response
 
 #update order by parcel_id    
-@router.patch("/{order_id}", response_model=OrderRequest)
-def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
-    # Allow for partial updates
-    package_put = db.query(Order).filter(Order.order_id == order_id).update(
-        _package.model_dump(
-            exclude_unset=True, 
-            exclude_none=True
-        ))
-    # Check if order exists
-    # If not, raise an error
-    if not package_put:
-        raise HTTPException(status_code=404, detail="Order not found")
+# @router.patch("/{order_id}", response_model=OrderRequest)
+# def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
+#     # Allow for partial updates
+#     package_put = db.query(Order).filter(Order.order_id == order_id).update(
+#         _package.model_dump(
+#             exclude_unset=True, 
+#             exclude_none=True
+#         ))
+#     # Check if order exists
+#     # If not, raise an error
+#     if not package_put:
+#         raise HTTPException(status_code=404, detail="Order not found")
     
-    db.commit()
-    return package_put
+#     db.commit()
+#     return package_put
 
 #update order status by order id
 @router.put(

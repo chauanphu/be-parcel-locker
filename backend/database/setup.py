@@ -1,9 +1,20 @@
 # from models.user import User
+from models.role import Role
 from models.account import Account
 from models.profile import Profile
+from models.locker import *
+from models.recipient import *
+from models.order import *
+from models.parcel import *
+from models.parcel_type import *
+from models.profile import *
+from models.shipper import *
+
 from auth.utils import authenticate_user, hash_password
 from decouple import config
 from .session import session
+from .__init__ import Base
+
 ADMIN_USERNAME = config("ADMIN_USERNAME")
 ADMIN_PASSWORD = config("ADMIN_PASSWORD")
 

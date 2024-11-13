@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Enum, ForeignKey
 from database.__init__ import Base
+from sqlalchemy.orm import relationship
 
 class Recipient(Base):
     
@@ -9,8 +10,12 @@ class Recipient(Base):
     profile_id = Column(Integer,ForeignKey('profile.user_id') ,index=True,nullable=True)
     name = Column(String, nullable=False)
     phone = Column(String, nullable=False)
-    email = Column(String, nullable=False)
+    email = Column(String, nullable=True)
     address = Column(String, nullable=True)
-    gender = Column(Enum('Male', 'Female', 'Prefer not to respond', name='gender_recipient'))
-    
+    orders = relationship(
+        "Order",
+        back_populates="recipient",
+        foreign_keys="[Order.recipient_id]"
+    )
+
 print("Recipient model created successfully.")

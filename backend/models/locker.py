@@ -13,8 +13,14 @@ class Cell(Base):
     size = Column(Enum('S', 'M', 'L', name='size'), nullable=False)
     date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    sending_orders = relationship('Order', foreign_keys='Order.sending_cell_id', backref='sending_cell', lazy=True)
-    receiving_orders = relationship('Order', foreign_keys='Order.receiving_cell_id', backref='receiving_cell', lazy=True)
+    sending_orders = relationship('Order', 
+                                foreign_keys='Order.sending_cell_id',
+                                back_populates='sending_cell',
+                                lazy=True)
+    receiving_orders = relationship('Order',
+                                  foreign_keys='Order.receiving_cell_id', 
+                                  back_populates='receiving_cell',
+                                  lazy=True)
 
 class Locker(Base):
     __tablename__ = 'locker'

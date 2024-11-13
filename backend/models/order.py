@@ -22,15 +22,22 @@ class Order(Base):
 
     order_id = Column(Integer, primary_key=True, index=True)
     sender_id = Column(Integer, ForeignKey('profile.user_id'), nullable=False)
-    recipient_id = Column(Integer, nullable=False)
+    recipient_id = Column(Integer, ForeignKey('recipient.recipient_id'), nullable=False)
     sending_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     receiving_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     ordering_date = Column(Date, default=datetime.utcnow, nullable=False)
     sending_date = Column(Date)
     receiving_date = Column(Date)
-    order_status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.Packaging)
-    warnings = Column(Boolean, nullable=False, default=False)
+    order_status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.Packaging, name='order_status')
 
     parcel = relationship('Parcel', backref='order', lazy=True, uselist=False)
+    sender = relationship('Profile', backref='sender', lazy=True, uselist=False)
+    recipient = relationship(
+        "Recipient",
+        foreign_keys=[recipient_id],
+        back_populates="orders"
+    )
+    sending_cell = relationship('Cell', foreign_keys='Order.sending_cell_id', lazy=True, uselist=False)
+    receiving_cell = relationship('Cell', foreign_keys='Order.receiving_cell_id', lazy=True, uselist=False)
 
 print("Order model created successfully.")

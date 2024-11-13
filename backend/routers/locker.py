@@ -8,7 +8,7 @@ from enum import Enum
 
 from database.session import get_db
 from models.locker import Locker, Cell
-from models.order import Order
+from models.order import Order, OrderStatus
 from models.parcel import Parcel
 from auth.utils import check_admin
 
@@ -53,7 +53,7 @@ class CellCreate(CellBase):
 class CellIDResponse(BaseModel):
     """Model for cell ID response"""
     cell_id: UUID
-    is_sending: bool
+    size: SizeEnum
 
 class CellResponse(CellBase):
     """Model for cell response"""
@@ -198,17 +198,13 @@ async def get_available_cells(locker_id: int, db: Session = Depends(get_db)):
     if not locker:
         raise HTTPException(status_code=404, detail="Locker not found")
     
-    cells = db.query(Cell).filter(Cell.locker_id == locker_id).all()
-    orders = db.query(Order).filter(Order.sending_cell_id != None).filter(Order.receiving_cell_id == None).all()
-    sending_cells = [order.sending_cell_id for order in orders]
-    available_cells = [cell for cell in cells if cell.cell_id not in sending_cells]
-    
+    used_cells = set()
+    incompleted_orders = db.query(Order).filter(Order.order_status == OrderStatus.Completed)
+    used_cells.update([order.sending_cell_id for order in incompleted_orders])
+    used_cells.update([order.receiving_cell_id for order in incompleted_orders])
+    available_cells = db.query(Cell).filter(Cell.cell_id.notin_(used_cells)).all()
     return [
-        {
-            "cell_id": cell.cell_id,
-            "is_sending": False
-        }
-        for cell in available_cells
+        CellIDResponse(cell_id=cell.cell_id, size=cell.size) for cell in available_cells
     ]
 
 @router.post("/{locker_id}/cells", status_code=status.HTTP_201_CREATED, dependencies=[Depends(check_admin)])
