@@ -1,12 +1,20 @@
-from models import locker, order, parcel_type, parcel,role,account,profile, recipient, shipper
-from .__init__ import Base, engine
-
 # from models.user import User
+from models.role import Role
 from models.account import Account
 from models.profile import Profile
-from auth.utils import bcrypt_context, authenticate_user
+from models.locker import *
+from models.recipient import *
+from models.order import *
+from models.parcel import *
+from models.parcel_type import *
+from models.profile import *
+from models.shipper import *
+
+from auth.utils import authenticate_user, hash_password
 from decouple import config
 from .session import session
+from .__init__ import Base
+
 ADMIN_USERNAME = config("ADMIN_USERNAME")
 ADMIN_PASSWORD = config("ADMIN_PASSWORD")
 
@@ -24,7 +32,7 @@ def create_default_admin():
         admin_request = Account()
         admin_request.username = ADMIN_USERNAME
         admin_request.email = "admin@example.com"
-        admin_request.password = bcrypt_context.hash(ADMIN_PASSWORD)
+        admin_request.password = hash_password(ADMIN_PASSWORD)
         admin_request.role = 1
         db.add(admin_request)
         db.commit()

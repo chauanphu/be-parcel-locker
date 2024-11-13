@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
-from auth.utils import get_current_user,bcrypt_context,check_admin
+from auth.utils import check_admin
 from fastapi import Depends
 
 router = APIRouter(

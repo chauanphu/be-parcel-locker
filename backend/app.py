@@ -8,5 +8,4 @@ def create_app() -> FastAPI:
     setup.create_default_admin()
     app = apply_cors_middleware(app)
     app.include_router(api_router)
-    
     return app
