@@ -1,7 +1,7 @@
 from datetime import date
 import logging
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
@@ -102,7 +102,7 @@ def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int, size_option: str, db: Session) -> tuple[Cell, str] | tuple[None, None]:
+def find_available_cell(locker_id: int, size_option: str, db: Session) -> Union[Tuple[Cell, str], Tuple[None, None]]:
     """
     Finds an available cell using Redis for availability tracking
     """
