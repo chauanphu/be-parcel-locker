@@ -39,11 +39,11 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t be-parcel:${{ env.VERSION }} .
-          docker tag be-parcel:${{ env.VERSION }} be-parcel:latest
+          docker tag chauanphu/be-parcel:${{ env.VERSION }} chauanphu/be-parcel:latest
         working-directory: backend
         
       - name: Push Docker image
         run: |
-          docker push be-parcel:${{ env.VERSION }}
-          docker push be-parcel:latest
+          docker push chauanphu/be-parcel:${{ env.VERSION }}
+          docker push chauanphu/be-parcel:latest
         working-directory: backend
