@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from auth.utils import get_current_user
 from database.session import get_db
 from fastapi import Depends
+from utils.redis import redis_client
 import json
 
 router = APIRouter()
@@ -88,7 +89,10 @@ class ShipperNotiManager(ConnetionManager):
 
     def notify_new_order(self, new_order: Route):
         # Stringify the new order to JSON
-        new_order = json.dumps(new_order.__dict__)
+        new_order = json.dumps({
+            "type": "new_order",
+            "data": new_order.__dict__
+        })
         
         for connection in self.active_connections.values():
             connection.send_text(new_order)
@@ -97,7 +101,18 @@ class LiveOrderManager(ConnetionManager):
     def __init__(self):
         self.viewers: Dict[int, List[WebSocket]] = {}  # order_id -> list of viewing websockets
         self.updater: Dict[int, WebSocket] = {}  # order_id -> shipper websocket
-        
+    
+    def get_location(self, order_id: int):
+        latitude = redis_client.hget(f"order:{order_id}", "latitude")
+        longitude = redis_client.hget(f"order:{order_id}", "longitude")
+        if latitude is None or longitude is None:
+            return None, None
+        return latitude, longitude
+
+    def update_location(self, order_id: int, latitude: float, longitude: float):
+        redis_client.hset(f"order:{order_id}", "latitude", latitude)
+        redis_client.hset(f"order:{order_id}", "longitude", longitude)
+
     async def connect_viewer(self, websocket: WebSocket, order_id: int):
         # Remove viewer from any existing order they might be watching
         for viewers in self.viewers.values():
@@ -184,7 +199,16 @@ async def websocket_tracking(
             await liveOrderManager.connect_updater(websocket, order_id)
         else:
             await liveOrderManager.connect_viewer(websocket, order_id)
-        
+            latitude, longitude = liveOrderManager.get_location(order_id)
+            if latitude is not None and longitude is not None:
+                await websocket.send_text(json.dumps({
+                    "type": "location_update",
+                    "data": {
+                        "order_id": order_id,
+                        "latitude": latitude,
+                        "longitude": longitude
+                    }
+                }))
         try:
             while True:
                 data = await websocket.receive_json()
