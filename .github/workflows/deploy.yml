@@ -22,9 +22,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-        working-directory: backend
 
       - name: Get version from tag
         id: version
@@ -38,12 +38,12 @@ jobs:
 
       - name: Build Docker image
         run: |
+          cd backend
           docker build -t be-parcel:${{ env.VERSION }} .
           docker tag be-parcel:${{ env.VERSION }} be-parcel:latest
-        working-directory: backend
 
       - name: Push Docker image
         run: |
+          cd backend
           docker push be-parcel:${{ env.VERSION }}
           docker push be-parcel:latest
-        working-directory: backend
