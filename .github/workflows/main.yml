@@ -39,8 +39,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t myapp:${{ env.VERSION }} .
-          docker tag myapp:${{ env.VERSION }} myapp:latest
+          docker build -t be-parcel:${{ env.VERSION }} .
+          docker tag be-parcel:${{ env.VERSION }} be-parcel:latest
 
       - name: Push Docker image
         run: |
