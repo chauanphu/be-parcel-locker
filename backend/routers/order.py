@@ -208,26 +208,49 @@ def create_order(order: OrderCreate,
         receiving_locker_id = order.receiving_locker_id
 
         size_option = determine_parcel_size(
-            parcel_data['length'], 
-            parcel_data['width'], 
-            parcel_data['height'], 
-            parcel_data['weight']
+            parcel_data.length, 
+            parcel_data.width, 
+            parcel_data.height, 
+            parcel_data.weight
         )
 
         # Start Redis transaction
         pipeline = redis_client.pipeline()
 
-        sending_cell = find_available_cell(sending_locker_id, size_option, db)
-        receiving_cell = find_available_cell(receiving_locker_id, size_option, db)
+        sending_cell: Cell = find_available_cell(sending_locker_id, size_option, db)
+        receiving_cell: Cell = find_available_cell(receiving_locker_id, size_option, db)
 
         if not sending_cell:
             raise HTTPException(status_code=400, detail="No available cells in sending locker")
         if not receiving_cell:
             raise HTTPException(status_code=400, detail="No available cells in receiving locker")
-        
-        new_order = Order(**order)
-        new_order.parcel = Parcel(**parcel_data)
+        new_recipient = Recipient(
+            email = order.recipient.email,
+            name = order.recipient.name,
+            phone = order.recipient.phone
+        )
+        db.add(new_recipient)
+        db.commit()
+        db.refresh(new_recipient)
+        new_order = Order(
+            sender_id=current_user.user_id,
+            recipient_id=new_recipient.recipient_id,
+            sending_cell_id=sending_cell.cell_id,
+            receiving_cell_id=receiving_cell.cell_id,
+            order_status=OrderStatusEnum.Packaging
+        )
         db.add(new_order)
+        db.commit()
+        db.refresh(new_order)
+        new_parcel = Parcel(
+            parcel_id=new_order.order_id,
+            width=parcel_data.width, 
+            length=parcel_data.length, 
+            height=parcel_data.height, 
+            weight=parcel_data.weight, 
+            parcel_size=size_option
+            )
+        db.add(new_parcel)
         db.commit()
 
         # Cache order data in Redis with string conversion for all values
@@ -391,23 +414,6 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     )
     
     return response
-
-#update order by parcel_id    
-# @router.patch("/{order_id}", response_model=OrderRequest)
-# def update_package(order_id: int, _package: OrderRequest, db: Session = Depends(get_db)):
-#     # Allow for partial updates
-#     package_put = db.query(Order).filter(Order.order_id == order_id).update(
-#         _package.model_dump(
-#             exclude_unset=True, 
-#             exclude_none=True
-#         ))
-#     # Check if order exists
-#     # If not, raise an error
-#     if not package_put:
-#         raise HTTPException(status_code=404, detail="Order not found")
-    
-#     db.commit()
-#     return package_put
 
 #update order status by order id
 @router.put(
