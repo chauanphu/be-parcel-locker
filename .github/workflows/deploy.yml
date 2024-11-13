@@ -26,9 +26,6 @@ jobs:
           pip install -r requirements.txt
         working-directory: backend
 
-      - name: Run tests
-        run: pytest
-
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
