@@ -10,6 +10,6 @@ class Role(Base):
 
     __tablename__ = 'role'
     
-    role_id = Column(Integer, primary_key=True, index=True)
+    role_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False)
     accounts = relationship("Account", back_populates="role_rel")

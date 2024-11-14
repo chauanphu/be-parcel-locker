@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Date, Integer, Enum, Boolean
+from sqlalchemy import Column, ForeignKey, Date, Integer, Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from database.__init__ import Base
@@ -12,6 +12,8 @@ class OrderStatus(enum.Enum):
     Delayed = 'Delayed'
     Expired = 'Expired'
     Packaging = 'Packaging'
+
+order_status_enum = SqlEnum(OrderStatus, name='order_status')
 
 class Order(Base):
     """
@@ -28,7 +30,7 @@ class Order(Base):
     ordering_date = Column(Date, default=datetime.utcnow, nullable=False)
     sending_date = Column(Date)
     receiving_date = Column(Date)
-    order_status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.Packaging, name='order_status')
+    order_status = Column(order_status_enum, nullable=False, default=OrderStatus.Packaging, name='order_status')
 
     parcel = relationship('Parcel', backref='order', lazy=True, uselist=False)
     sender = relationship('Profile', backref='sender', lazy=True, uselist=False)

@@ -61,7 +61,7 @@ class CellResponse(CellBase):
     date_created: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class LockerResponse(LockerBase):
     """Model for locker response"""
@@ -71,7 +71,7 @@ class LockerResponse(LockerBase):
     date_created: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 router = APIRouter(
     prefix="/api/v1/lockers",
