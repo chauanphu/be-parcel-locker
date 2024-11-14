@@ -1,10 +1,8 @@
 from datetime import date
-import logging
 import random
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, List
 import uuid
-from fastapi import APIRouter, Depends, Query
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from pydantic import BaseModel, EmailStr
 from auth.utils import get_current_user,check_admin
 from sqlalchemy.orm import Session, joinedload
@@ -38,7 +36,9 @@ class BaseParcel(BaseModel):
     length: int
     height: int
     weight: int
-    parcel_size: Optional[str] = None
+
+class ParcelRead(BaseParcel):
+    parcel_size: str
 
 class BaseOrderInfo(BaseModel):
     sending_address: str
@@ -69,14 +69,20 @@ class OrderCreate(BaseModel):
 
 class OrderResponse(BaseOrderInfo):
     order_id: int
-    parcel: BaseParcel
     sender_id: int
     sender_information: BaseSenderInfo
     recipient_id: int
+    sending_address: str
+    receiving_address: str
+    ordering_date: date
+    sending_date: Optional[date]
+    receiving_date: Optional[date]
+    order_status: OrderStatusEnum
+    parcel: ParcelRead
 
 class OrderResponseSingle(BaseOrderInfo):
     order_id: int
-    parcel: BaseParcel
+    parcel: ParcelRead
     sender_information: BaseSenderInfo
 
 class OrderStatus(BaseModel):
@@ -94,6 +100,20 @@ class CompletedOrder(BaseModel):
     sending_date: Optional[date]
     receiving_date: Optional[date]
     order_status: str
+
+class PaginatedResponse(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    data: List[OrderResponse]
+
+class PaginatedHistoryResponse(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    data: List[OrderResponse]
 
 # Return all order along with their parcel and locker
 def join_order_parcel_cell(db: Session = Depends(get_db)):
@@ -159,7 +179,7 @@ def determine_parcel_size(length: int, width: int, height: int, weight: int) -> 
     raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
 
 #tạo order
-@router.post("/", response_model=OrderActionResponse)
+@router.post("/")
 def create_order(order: OrderCreate, 
                  db: Session = Depends(get_db),
                  current_user: Account = Depends(get_current_user)):
@@ -231,12 +251,7 @@ def create_order(order: OrderCreate,
         pipeline.hmset(f"order:{new_order.order_id}", order_cache_data)
         pipeline.execute()
 
-        return OrderActionResponse(
-            order_id=new_order.order_id,
-            message="Order created successfully",
-            parcel_size=size_option,
-            sender_id=current_user.user_id
-        )
+        return status.HTTP_201_CREATED
 
     except Exception as e:
         db.rollback()
@@ -286,7 +301,7 @@ async def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
     return {"message": "OTP verified successfully"}
 
 #get order by paging
-@router.get("/",response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
+@router.get("/", response_model=PaginatedResponse, dependencies=[Depends(check_admin)])
 async def get_paging_order(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),  # Current page number for lockers
@@ -319,13 +334,13 @@ async def get_paging_order(
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel = BaseParcel(
-            width = parcel.width,
-            length = parcel.length,
-            height = parcel.height,
-            weight = parcel.weight,
-            parcel_size = parcel.parcel_size
-    )
+            parcel = ParcelRead(
+                width = parcel.width,
+                length = parcel.length,
+                height = parcel.height,
+                weight = parcel.weight,
+                parcel_size = parcel.parcel_size
+            )
         )
         order_responses.append(response) 
     total_pages = (total_orders + per_page - 1) // per_page
@@ -356,7 +371,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
         address=order.sender.address
     )
     
-    parcel_info = BaseParcel(
+    parcel_info = ParcelRead(
             width = parcel.width,
             length = parcel.length,
             height = parcel.height,
@@ -427,7 +442,7 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     }
 
 #get histoy order by paging
-@router.get("/history/order", response_model=Dict[str, Any])
+@router.get("/history/", response_model=PaginatedHistoryResponse)
 async def get_history_order(
     db: Session = Depends(get_db),
     current_user: Account = Depends(get_current_user),  # Get the current authenticated user
@@ -447,7 +462,10 @@ async def get_history_order(
         parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
         sending_locker = find_locker_by_cell(order.sending_cell_id, db)
         receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
-        
+        if not sending_locker or not receiving_locker:
+            raise HTTPException(status_code=404, detail="Locker not found")
+        if not parcel:
+            raise HTTPException(status_code=404, detail="Parcel not found")
         # Create OrderResponse instance
         response = OrderResponse(
             order_id=order.order_id,
@@ -458,13 +476,18 @@ async def get_history_order(
                 address=order.sender.address
             ),
             recipient_id=order.recipient_id,
+            recipient_information=BaseSenderInfo(
+                name=order.recipient.name,
+                phone=order.recipient.phone,
+                address=order.recipient.address
+            ),
             sending_address=sending_locker.address,
             receiving_address=receiving_locker.address,
             ordering_date=order.ordering_date,
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
             order_status=order.order_status,
-            parcel=BaseParcel(
+            parcel=ParcelRead(
                 width=parcel.width,
                 length=parcel.length,
                 height=parcel.height,

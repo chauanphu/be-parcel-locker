@@ -24,6 +24,7 @@ class DensityEnum(str, Enum):
 class LockerStatusEnum(str, Enum):
     Active = 'Active'
     Inactive = 'Inactive'
+
 class CellBase(BaseModel):
     """Base Cell model"""
     size: SizeEnum
@@ -159,7 +160,6 @@ async def get_locker_cells(
         {
             "cell_id": cell.cell_id,
             "size": cell.size,
-            "date_created": cell.date_created
         }
         for cell in cells
     ]
