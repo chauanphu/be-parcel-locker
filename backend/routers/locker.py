@@ -99,8 +99,6 @@ async def list_lockers(
             "address": locker.address,
             "latitude": locker.latitude,
             "longitude": locker.longitude,
-            "locker_status": locker.locker_status,
-            "date_created": locker.date_created,
             "cells": [
                 {
                     "cell_id": cell.cell_id,
@@ -131,7 +129,6 @@ def get_cells_by_paging(
             "locker_id": cell.locker_id,
             "cell_id": cell.cell_id,
             "size": cell.size,
-            "date_created": cell.date_created,
         }
         for cell in cells
     ]
@@ -173,7 +170,6 @@ async def get_locker_cells(
     "/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(check_admin)],
-    response_model=Dict[str, int],
     summary="Create new locker"
 )
 async def create_locker(
@@ -183,13 +179,25 @@ async def create_locker(
     find_locker = db.query(Locker).filter((Locker.latitude == locker.latitude) & (Locker.longitude == locker.longitude)).first()
 
     if find_locker is None:
-        locker = Locker(**locker.dict())
-        db.add(locker)
+        new_locker = Locker(
+            address=locker.address,
+            latitude=locker.latitude,
+            longitude=locker.longitude,
+        )
+        db.add(new_locker)
         db.commit()
-        db.refresh(locker)
-        return locker.locker_id
+        db.refresh(new_locker)
+        for cell in locker.cells:
+            new_cell = Cell(
+                locker_id=new_locker.locker_id,
+                size=cell.size
+            )
+            db.add(new_cell)
+        db.commit()
+
+        return status.HTTP_201_CREATED
     else:
-        return {"message": "Locker already exists!"}
+        raise HTTPException(status_code=400, detail="Locker already exists")
 
 @router.get("/{locker_id}/available-cells", response_model=List[CellIDResponse])
 async def get_available_cells(locker_id: int, db: Session = Depends(get_db)):
