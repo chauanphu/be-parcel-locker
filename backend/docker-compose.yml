@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: chauanphu/be-parcel:v2.0.0-beta
     # image: be-parcel:1.7.3
     restart: always
     ports:

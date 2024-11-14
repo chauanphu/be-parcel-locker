@@ -78,7 +78,7 @@ def get_paging_shippers(
     role_shipper = db.query(Role).filter(Role.name == "shipper").first()
     if not role_shipper:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role 'shipper' not found")
-    view_shippers = db.query(Account).filter(Account.role_id == role_shipper.role_id)
+    view_shippers = db.query(Account).filter(Account.role == role_shipper.role_id)
     total_shippers = view_shippers.count()
     # Fetch paginated list of shippers
     shippers = view_shippers.limit(per_page).offset((page - 1) * per_page).all()
@@ -86,9 +86,8 @@ def get_paging_shippers(
     # Format the response
     shipper_responses = [
         {
-            "shipper_id": shipper.shipper_id,
-            "order_id": shipper.order_id,
-            "name": shipper.name,
+            "shipper_id": shipper.user_id,
+            "name": shipper,
             "gender": shipper.gender,
             "age": shipper.age,
             "phone": shipper.phone,

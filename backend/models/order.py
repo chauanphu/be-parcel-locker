@@ -26,6 +26,7 @@ class Order(Base):
     order_id = Column(Integer, primary_key=True, index=True)
     sender_id = Column(Integer, ForeignKey('account.user_id'), nullable=False)
     recipient_id = Column(Integer, ForeignKey('account.user_id'), nullable=False)
+    shipper_id = Column(Integer, ForeignKey('account.user_id'), nullable=True)
     sending_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     receiving_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     ordering_date = Column(Date, default=datetime.utcnow, nullable=False)
@@ -34,20 +35,9 @@ class Order(Base):
     order_status = Column(order_status_enum, nullable=False, default=OrderStatus.Packaging, name='order_status')
 
     parcel = relationship('Parcel', backref='order', lazy=True, uselist=False)
-    sender = relationship(
-    'Account',
-    backref='sent_orders',
-    lazy=True,
-    uselist=False,
-    foreign_keys=[sender_id]
-    )
-    recipient = relationship(
-        'Account',
-        backref='received_orders',
-        lazy=True,
-        uselist=False,
-        foreign_keys=[recipient_id]
-    )
+    sender = relationship('Account', backref='sent_orders', lazy=True, uselist=False, foreign_keys=[sender_id])
+    recipient = relationship('Account', backref='received_orders', lazy=True, uselist=False, foreign_keys=[recipient_id])
+    shipper = relationship('Account', backref='shipped_orders', lazy=True, uselist=False, foreign_keys=[shipper_id])
     sending_cell = relationship('Cell', foreign_keys='Order.sending_cell_id', lazy=True, uselist=False)
     receiving_cell = relationship('Cell', foreign_keys='Order.receiving_cell_id', lazy=True, uselist=False)
 

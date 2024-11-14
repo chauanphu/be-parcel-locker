@@ -193,8 +193,6 @@ async def get_accounts_list(
             "user_id": account.user_id,
             "email": account.email,
             "username": account.username,
-            "status": account.status,
-            "date_created": account.Date_created,
             "role": account.role,
         }
         for account in accounts
