@@ -24,24 +24,6 @@ class DensityEnum(str, Enum):
 class LockerStatusEnum(str, Enum):
     Active = 'Active'
     Inactive = 'Inactive'
-
-class LockerBase(BaseModel):
-    """Base Locker model with common fields"""
-    address: str = Field(..., min_length=1, max_length=255)
-    latitude: float = Field(..., ge=-90, le=90)
-    longitude: float = Field(..., ge=-180, le=180)
-
-class LockerCreate(LockerBase):
-    """Model for creating a locker"""
-    locker_status: LockerStatusEnum = Field(default=LockerStatusEnum.Active)
-
-class LockerUpdate(BaseModel):
-    """Model for updating a locker"""
-    address: Optional[str] = Field(None, min_length=1, max_length=255)
-    latitude: Optional[float] = Field(None, ge=-90, le=90)
-    longitude: Optional[float] = Field(None, ge=-180, le=180)
-    locker_status: Optional[LockerStatusEnum] = None
-
 class CellBase(BaseModel):
     """Base Cell model"""
     size: SizeEnum
@@ -49,6 +31,23 @@ class CellBase(BaseModel):
 class CellCreate(CellBase):
     """Model for creating cells"""
     quantity: int = Field(..., gt=0, le=100)
+    
+class LockerBase(BaseModel):
+    """Base Locker model with common fields"""
+    address: str = Field(..., min_length=1, max_length=255)
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    
+class LockerCreate(LockerBase):
+    """Model for creating a locker"""
+    cells: List[CellCreate]
+
+class LockerUpdate(BaseModel):
+    """Model for updating a locker"""
+    address: Optional[str] = Field(None, min_length=1, max_length=255)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    locker_status: Optional[LockerStatusEnum] = None
 
 class CellIDResponse(BaseModel):
     """Model for cell ID response"""
@@ -171,7 +170,7 @@ async def get_locker_cells(
     return cell_responses
 
 @router.post(
-    "",
+    "/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(check_admin)],
     response_model=Dict[str, int],

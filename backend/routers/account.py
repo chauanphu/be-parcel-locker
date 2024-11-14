@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
@@ -11,14 +11,11 @@ from enum import Enum
 from decouple import config
 import random
 
+from models.role import Role
+
 SECRET_KEY= config("SECRET_KEY")
 ALGORITHM = config("algorithm", default="HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 10
-
-class StatusEnum(str, Enum):
-    Active = 'Active'
-    Inactive = 'Inactive'
-    Blocked = 'Blocked'
 
 router = APIRouter(
     prefix="/account",
@@ -32,12 +29,20 @@ class AddressModel(BaseModel):
     ward: str
     district: str
 
+class RoleEnum(Enum):
+    ADMIN = "admin"
+    CUSTOMER = "customer"
+    SHIPPER = "shipper"
 
 class CreateUserRequestModel(BaseModel):
     email: EmailStr
     username: str
     password: str = Field(..., min_length=6)
-
+    name: str
+    phone: str
+    address: str
+    age: int
+    role: Optional[RoleEnum] = RoleEnum.CUSTOMER
 
 class CreateAdminRequestModel(BaseModel):
     email: str
@@ -45,120 +50,42 @@ class CreateAdminRequestModel(BaseModel):
     password: str
     role: int
 
+class RoleResponseModel(BaseModel):
+    role_id: int
+    name: str
+
+class GenderEnum(str, Enum):
+    MALE = 'Male'
+    FEMALE = 'Female'
+    PREFER_NOT_TO_RESPOND = 'Prefer not to respond'
+
 class UserResponseModel(BaseModel):
     user_id: int
-    name: str
     email: str
     phone: str
+    username: str
+    name: str
+    gender: GenderEnum
+    age: int
     address: str
-    status: StatusEnum
-    date_created: datetime
-    role: int
+    role: RoleResponseModel
+
 class RegisterUserRequestModel(BaseModel):
     username: str
     email: EmailStr
     password: str = Field(..., min_length=6)
     confirm_password: str
 
-
-
-
-def create_access_code(data: dict, expires_delta: timedelta = None):
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    
-    access_code = random.randint(100000, 999999)
-    
-    # Store the access code and expiration time
-    pending_users[data["email"]] = {
-        "username": data["username"],
-        "password": data["password"],
-        "access_code": access_code,
-        "expires_at": expire
-    }
-    
-    return access_code
-
-
-pending_users = {} # For pending users
-
-
-#This doesn't need right now 
-
-# @public_router.post('/Register_by_code', status_code=status.HTTP_201_CREATED)
-# async def register_user(register_user_request: RegisterUserRequest, db: Session = Depends(get_db)):
-#     if register_user_request.password != register_user_request.confirm_password:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-#                             detail='Confirm password not like password')
-    
-#     user = authenticate_user(register_user_request.username, register_user_request.password, db)
-#     if user:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-#                             detail='Email already exists')
-    
-#     if register_user_request.username == Account.username:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-#                             detail='User already exists')
-        
-#     token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-#     access_code = create_access_code(
-#         data={"email": register_user_request.email, "username": register_user_request.username, "password": bcrypt_context.hash(register_user_request.password)}, 
-#         expires_delta=token_expires
-#     )
-    
-#     message = MessageSchema(
-#         subject="Email Confirmation",
-#         recipients=[register_user_request.email],
-#         body=f"Your confirmation code is: {access_code}",
-#         subtype="html"
-#     )
-    
-#     fm = FastMail(conf)
-#     await fm.send_message(message)
-    
-#     return {"message": "Please check your email for the confirmation code"}
-
-
-
-
-# @public_router.post("/confirm_code", status_code=status.HTTP_201_CREATED)
-# async def confirm_email(code: int, email: str, db: Session = Depends(get_db)):
-#     user_data = pending_users.get(email)
-#     if user_data is None:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code")
-    
-#     if user_data["access_code"] != code:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid code")
-    
-#     if datetime.utcnow() > user_data["expires_at"]:
-#         pending_users.pop(email)
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expired code")
-    
-#     new_user = Account(email=email, username=user_data["username"], password=user_data["password"])
-#     db.add(new_user)
-#     db.commit()
-#     db.refresh(new_user)
-    
-#     new_profile = Profile(
-#         user_id=new_user.user_id,
-#         name = 'null',
-#         gender = 'Male',
-#         age = 0,
-#         phone = 0,
-#         address = 'null'
-#         )
-#     db.add(new_profile)
-#     db.commit()
-#     pending_users.pop(email)
-    
-#     return {"message": "Email confirmed and user registered successfully"}
-
+class PaginatedResponseModel(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    data: list[UserResponseModel]
 
 @router.get(
     "/",
-    response_model=Dict[str, Any],
+    response_model=PaginatedResponseModel,
     dependencies=[Depends(check_admin)]
 )
 async def get_accounts_list(
@@ -168,18 +95,9 @@ async def get_accounts_list(
 ):
     """
     Get paginated list of accounts.
-    
-    Args:
-        page: Page number (starts from 1)
-        per_page: Number of items per page
-        
-    Returns:
-        Paginated list of accounts with total count and page information
     """
-    # Total number of accounts
     total_accounts = db.query(Account).count()
 
-    # Fetch paginated list of accounts
     accounts = (
         db.query(Account)
         .offset((page - 1) * per_page)
@@ -187,25 +105,56 @@ async def get_accounts_list(
         .all()
     )
 
-    # Format the response
     account_responses = [
-        {
-            "user_id": account.user_id,
-            "email": account.email,
-            "username": account.username,
-            "role": account.role,
-        }
-        for account in accounts
+        UserResponseModel(
+            user_id=account.user_id,
+            email=account.email, 
+            phone=account.phone,
+            username=account.username,
+            name=account.name if account.name is not None else "",
+            gender=account.gender,
+            age=account.age,
+            address=account.address,
+            role=RoleResponseModel(
+                role_id=account.role,
+                name=account.role_rel.name
+            )
+        ) for account in accounts
     ]
 
     total_pages = (total_accounts + per_page - 1) // per_page
-    return {
-        "total": total_accounts,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "data": account_responses
-    }
+    
+    return PaginatedResponseModel(
+        total=total_accounts,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        data=account_responses
+    )
+
+@router.get(
+    "/me",
+)
+async def get_current_user_account(
+    current_user: Account = Depends(get_current_user)
+):
+    """
+    Get the current user account.
+    """
+    return UserResponseModel(
+        user_id=current_user.user_id,
+        email=current_user.email, 
+        phone=current_user.phone,
+        username=current_user.username,
+        name=current_user.name if current_user.name is not None else "",
+        gender=current_user.gender,
+        age=current_user.age,
+        address=current_user.address,
+        role=RoleResponseModel(
+            role_id=current_user.role,
+            name=current_user.role_rel.name
+        )
+    )
 
 @router.post(
     "/",
@@ -218,30 +167,43 @@ async def create_user_account(
 ):
     """
     Create a new user account.
-    
-    Args:
-        account: User account creation details
-        
-    Returns:
-        Newly created user ID
-        
+
     Raises:
         HTTPException: If email or username already exists
     """
-    account.password = hash_password(account.password)
-    check_user_email = db.query(Account).filter(Account.email == account.email).first()
-    if check_user_email is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The email already exists")
-    check_user_username = db.query(Account).filter(Account.username == account.username).first()
-    if check_user_username is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The username already exists")
-   
-    
-    new_account = Account(email=account.email, username=account.username, password=account.password)
-    db.add(new_account)
-    db.commit()
-    db.refresh(new_account)
-    return new_account.user_id
+    try:
+        account.password = hash_password(account.password)
+        check_user_email = db.query(Account).filter(Account.email == account.email).first()
+        role = db.query(Role).filter(Role.name == account.role.value).first()
+        if role is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role does not exist")
+        if check_user_email is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The email already exists")
+        check_user_username = db.query(Account).filter(Account.username == account.username).first()
+        if check_user_username is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The username already exists")
+       
+        new_account = Account(
+            email=account.email,
+            username=account.username,
+            password=account.password,
+            name=account.name,
+            phone=account.phone,
+            address=account.address,
+            age=account.age,
+            role=role.role_id
+        )
+        db.add(new_account)
+        db.commit()
+        db.refresh(new_account)
+        return new_account.user_id
+    except Exception as e:
+        db.rollback()
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the account"
+        )
 
 @router.delete(
     "/{user_id}",
