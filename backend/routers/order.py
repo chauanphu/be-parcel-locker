@@ -1,7 +1,7 @@
 from datetime import date
 import logging
 import random
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi import APIRouter, HTTPException, Depends
@@ -9,12 +9,10 @@ from pydantic import BaseModel, EmailStr
 from auth.utils import get_current_user,check_admin
 from sqlalchemy.orm import Session, joinedload
 from models.account import Account
-from models.recipient import Recipient
 from database.session import get_db
 from models.locker import Cell, Locker
 from models.order import Order
 from routers.parcel import Parcel 
-from models.profile import Profile
 
 from utils.mqtt import locker_client
 from utils.redis import redis_client
@@ -65,7 +63,7 @@ class RecipientInfo(BaseModel):
 
 class OrderCreate(BaseModel):
     parcel: BaseParcel
-    recipient: RecipientInfo
+    recipient_phone: str
     sending_locker_id: int
     receiving_locker_id: int
 
@@ -160,39 +158,6 @@ def determine_parcel_size(length: int, width: int, height: int, weight: int) -> 
         return "L"
     raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
 
-def get_user_id_by_recipient_info(db: Session, email: str, phone: str, name: str) -> int:
-    # Query the user by email
-    user = db.query(Account).filter(Account.email == email).first()
-    
-    if user is None:
-        recipient_query = db.query(Recipient).filter(Recipient.phone == phone).first()
-        if recipient_query is None:
-            #Then the profile_id of the recipient is null and save a new recipient
-            recipient = Recipient(
-                name = name,
-                phone = phone, 
-                email = email
-            )
-            db.add(recipient)
-            db.commit()
-            return recipient.recipient_id.value
-        else:
-            return recipient_query.recipient_id.value
-        
-    #if the user already in the database, create a recipient with that user_id 
-    profile = db.query(Profile).filter(Profile.user_id == user.user_id).first()
-    if profile is None:
-        raise HTTPException(status_code=400, detail="User profile not found")
-    user_recipient = Recipient(
-        name = profile.name,
-        phone = profile.phone,
-        email = user.email,
-        profile_id = profile.user_id
-    )
-    db.add(user_recipient)
-    db.commit()
-    return user_recipient.recipient_id.value
-
 #tạo order
 @router.post("/", response_model=OrderActionResponse)
 def create_order(order: OrderCreate, 
@@ -224,17 +189,17 @@ def create_order(order: OrderCreate,
             raise HTTPException(status_code=400, detail="No available cells in sending locker")
         if not receiving_cell:
             raise HTTPException(status_code=400, detail="No available cells in receiving locker")
-        new_recipient = Recipient(
-            email = order.recipient.email,
-            name = order.recipient.name,
-            phone = order.recipient.phone
-        )
-        db.add(new_recipient)
+        # Find recipient by phone
+        recipient = db.query(Account).filter(Account.phone == order.recipient_phone).first()
+        if not recipient:
+            raise HTTPException(status_code=404, detail="Recipient not found")
+        
+        db.add(recipient)
         db.commit()
-        db.refresh(new_recipient)
+        db.refresh(recipient)
         new_order = Order(
             sender_id=current_user.user_id,
-            recipient_id=new_recipient.recipient_id,
+            recipient_id=recipient.user_id,
             sending_cell_id=sending_cell.cell_id,
             receiving_cell_id=receiving_cell.cell_id,
             order_status=OrderStatusEnum.Packaging
@@ -335,8 +300,6 @@ async def get_paging_order(
     orders = db.query(Order).offset((page - 1) * per_page).limit(per_page).all()
     order_responses = []
     for order in orders:
-        # Fetch sender profile
-        profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
         parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
         sending_locker = find_locker_by_cell(order.sending_cell_id, db)
         receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
@@ -345,9 +308,9 @@ async def get_paging_order(
             order_id=order.order_id,
             sender_id=order.sender_id,
             sender_information=BaseSenderInfo(
-                name = profile.name if profile else "",
-                phone = profile.phone if profile else "",
-                address = profile.address if profile else ""
+                name = order.sender.name,
+                phone = order.sender.phone,
+                address = order.sender.address
             ),
             recipient_id = order.recipient_id,
             sending_address = sending_locker.address,
@@ -381,7 +344,6 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     order = query.filter(Order.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
     parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
 
     # Extract and convert data
@@ -389,9 +351,9 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
 
     sender_info = BaseSenderInfo(
-        name=profile.name if profile else "",
-        phone=profile.phone if profile else "",
-        address=profile.address if profile else ""
+        name=order.sender.name,
+        phone=order.sender.phone,
+        address=order.sender.address
     )
     
     parcel_info = BaseParcel(
@@ -482,8 +444,6 @@ async def get_history_order(
     orders = query.offset((page - 1) * per_page).limit(per_page).all()
     order_responses = []
     for order in orders:
-        # Fetch sender profile
-        profile = db.query(Profile).filter(Profile.user_id == order.sender_id).first()
         parcel = db.query(Parcel).filter(Parcel.parcel_id == order.order_id).first()
         sending_locker = find_locker_by_cell(order.sending_cell_id, db)
         receiving_locker = find_locker_by_cell(order.receiving_cell_id, db)
@@ -493,9 +453,9 @@ async def get_history_order(
             order_id=order.order_id,
             sender_id=order.sender_id,
             sender_information=BaseSenderInfo(
-                name=profile.name if profile else "",
-                phone=profile.phone if profile else "",
-                address=profile.address if profile else ""
+                name=order.sender.name,
+                phone=order.sender.phone,
+                address=order.sender.address
             ),
             recipient_id=order.recipient_id,
             sending_address=sending_locker.address,

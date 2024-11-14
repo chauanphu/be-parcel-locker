@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from database.__init__ import Base
 from datetime import datetime
 import enum
+from models.account import Account
 
 class OrderStatus(enum.Enum):
     Completed = 'Completed'
@@ -23,8 +24,8 @@ class Order(Base):
     __tablename__ = 'order'
 
     order_id = Column(Integer, primary_key=True, index=True)
-    sender_id = Column(Integer, ForeignKey('profile.user_id'), nullable=False)
-    recipient_id = Column(Integer, ForeignKey('recipient.recipient_id'), nullable=False)
+    sender_id = Column(Integer, ForeignKey('account.user_id'), nullable=False)
+    recipient_id = Column(Integer, ForeignKey('account.user_id'), nullable=False)
     sending_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     receiving_cell_id = Column(UUID, ForeignKey('cell.cell_id'), nullable=False)
     ordering_date = Column(Date, default=datetime.utcnow, nullable=False)
@@ -33,11 +34,19 @@ class Order(Base):
     order_status = Column(order_status_enum, nullable=False, default=OrderStatus.Packaging, name='order_status')
 
     parcel = relationship('Parcel', backref='order', lazy=True, uselist=False)
-    sender = relationship('Profile', backref='sender', lazy=True, uselist=False)
+    sender = relationship(
+    'Account',
+    backref='sent_orders',
+    lazy=True,
+    uselist=False,
+    foreign_keys=[sender_id]
+    )
     recipient = relationship(
-        "Recipient",
-        foreign_keys=[recipient_id],
-        back_populates="orders"
+        'Account',
+        backref='received_orders',
+        lazy=True,
+        uselist=False,
+        foreign_keys=[recipient_id]
     )
     sending_cell = relationship('Cell', foreign_keys='Order.sending_cell_id', lazy=True, uselist=False)
     receiving_cell = relationship('Cell', foreign_keys='Order.receiving_cell_id', lazy=True, uselist=False)

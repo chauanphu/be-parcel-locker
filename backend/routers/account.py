@@ -3,7 +3,6 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 from database.session import get_db
-from models.profile import Profile
 from models.account import Account
 from sqlalchemy.orm import Session
 from auth.utils import get_current_user, check_admin, hash_password
@@ -272,16 +271,9 @@ async def delete_user_account(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no account")
     if acc.email == "admin@example.com":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin account")
-    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
-    if profile is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no profile")
-    if profile.name == "Admin":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete an admin profile")
     
     db.delete(acc)
-    db.delete(profile)
     db.commit()
-    
     
     return {
         "Message": "Account deleted sucessfully"

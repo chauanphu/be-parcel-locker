@@ -1,14 +1,10 @@
 # from models.user import User
 from models.role import Role
 from models.account import Account
-from models.profile import Profile
 from models.locker import *
-from models.recipient import *
 from models.order import *
 from models.parcel import *
 from models.parcel_type import *
-from models.profile import *
-from models.shipper import *
 
 from auth.utils import authenticate_user, hash_password
 from decouple import config
@@ -54,19 +50,9 @@ def create_default_admin():
                 username=ADMIN_USERNAME,
                 email="admin@example.com",
                 password=hash_password(ADMIN_PASSWORD),
-                role=admin_role.role_id
+                role=admin_role.role_id,
             )
             db.add(new_admin)
-            db.commit()
-            db.refresh(new_admin)
-            admin_profile = Profile()
-            admin_profile.user_id = new_admin.user_id
-            admin_profile.name = "Admin"
-            admin_profile.address = "Admin Address"
-            admin_profile.phone = "1234567890"
-            admin_profile.age = 30
-            admin_profile.gender = GenderEnum.Male
-            db.add(admin_profile)
             db.commit()
             
             print("Admin user created successfully.")

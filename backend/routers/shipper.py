@@ -2,11 +2,12 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 from models.account import Account
 from database.session import get_db
-from models.shipper import Shipper
 from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional
 from auth.utils import get_current_user, hash_password
 from starlette import status
+
+from models.role import Role
 
 router = APIRouter(
     prefix="/shipper",
@@ -74,10 +75,13 @@ def get_paging_shippers(
     per_page: int = Query(10, ge=1)
 ):
     # Total number of shippers
-    total_shippers = db.query(Shipper).count()
-
+    role_shipper = db.query(Role).filter(Role.name == "shipper").first()
+    if not role_shipper:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role 'shipper' not found")
+    view_shippers = db.query(Account).filter(Account.role_id == role_shipper.role_id)
+    total_shippers = view_shippers.count()
     # Fetch paginated list of shippers
-    shippers = db.query(Shipper).offset((page - 1) * per_page).limit(per_page).all()
+    shippers = view_shippers.limit(per_page).offset((page - 1) * per_page).all()
 
     # Format the response
     shipper_responses = [

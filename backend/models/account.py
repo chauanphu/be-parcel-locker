@@ -1,8 +1,13 @@
-from sqlalchemy import Column, Integer, String, VARCHAR,Enum,DateTime,ForeignKey
+from enum import Enum
+from sqlalchemy import Column, Integer, String, VARCHAR,Enum as SQLEnum, ForeignKey
 from database.__init__ import Base
 from sqlalchemy.orm import relationship
-from datetime import datetime
 from models.role import Role
+
+class GenderEnum(Enum):
+    Male = "Male"
+    Female = "Female"
+    PREFER_NOT_TO_RESPOND = "Prefer not to respond"
 
 class Account(Base):
     """
@@ -14,8 +19,10 @@ class Account(Base):
     email = Column(String, nullable=False, unique=True)
     username = Column(VARCHAR(20), nullable=False, unique=True)
     password = Column(String,nullable=False)
-    status = Column(Enum('Active','Inactive', 'Blocked', name='account_status'), nullable=False,default='Active')
-    Date_created = Column(DateTime, default=datetime.utcnow, nullable=False)
+    gender = Column(SQLEnum(GenderEnum), nullable = False, default=GenderEnum.PREFER_NOT_TO_RESPOND)
+    age = Column(Integer, nullable = False, default=0)
+    phone = Column(String, nullable = False, unique=True, default="")
+    address = Column(String, nullable = False, default="")
     role = Column(Integer,ForeignKey('role.role_id'), nullable=False, default=2)
     role_rel = relationship("Role", back_populates="accounts")
 
