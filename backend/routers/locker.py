@@ -73,7 +73,7 @@ class LockerResponse(LockerBase):
         from_attributes = True
 
 router = APIRouter(
-    prefix="/api/v1/lockers",
+    prefix="/lockers",
     tags=["lockers"],
 )
 
