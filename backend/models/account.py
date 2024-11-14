@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, VARCHAR,Enum,DateTime,ForeignKey
 from database.__init__ import Base
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from models.role import Role
 
 class Account(Base):
     """
@@ -18,5 +19,4 @@ class Account(Base):
     role = Column(Integer,ForeignKey('role.role_id'), nullable=False, default=2)
     role_rel = relationship("Role", back_populates="accounts")
 
-    
 print("Account model created successfully.")

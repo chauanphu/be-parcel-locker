@@ -6,7 +6,6 @@ from models.account import Account
 from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional
 from auth.utils import get_current_user,check_admin
-from starlette import status
 from enum import Enum
 from decouple import config
 
@@ -34,10 +33,6 @@ public_router = APIRouter(
     prefix="/profile",
     tags=["profile"]
 )
-# shipper_router = APIRouter(
-#     prefix="/shipper",
-#     tags=["shipper"]
-# )  
 
 class Address(BaseModel):
     address_number: str
@@ -60,6 +55,7 @@ class CreateUserRequest(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: int
+    role: str
     name: str
     gender: GenderStatusEnum
     age: int
@@ -88,10 +84,19 @@ class UpdateProfileRequest(BaseModel):
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(Profile).filter(Profile.user_id == user_id).first()
-    if not user:
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    account = db.query(Account).filter(Account.user_id == user_id).first()
+    if not profile:
         raise HTTPException(status_code=404, detail="User profile not found")
-    return user
+    return UserResponse(
+        user_id=profile.user_id,
+        role=account.role_rel.name,
+        name=profile.name,
+        gender=profile.gender,
+        age=profile.age,
+        phone=profile.phone,
+        address=profile.address
+    )
 
 @router.get("/", response_model=Dict[str, Any], dependencies=[Depends(check_admin)])
 def get_paging_users(

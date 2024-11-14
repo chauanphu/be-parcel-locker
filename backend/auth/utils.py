@@ -7,17 +7,16 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from database.session import get_db
 from auth import SECRET_KEY, ALGORITHM
-import bcrypt
+from passlib.context import CryptContext
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='api/v1/auth/token')
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> bytes:
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed
+    return pwd_context.hash(password)
 
 def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    return pwd_context.verify(password, hashed)
 
 def authenticate_user(username: str, password: str, db: Session):
     user = db.query(Account).filter(Account.username == username).first()

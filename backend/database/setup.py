@@ -21,45 +21,56 @@ ADMIN_PASSWORD = config("ADMIN_PASSWORD")
 def create_roles():
     role_names = ["admin", "shipper", "customer"]
     with session as db:
-        for role_name in role_names:
-            role = db.query(Role).filter(Role.name == role_name).first()
-            if not role:
-                role = Role(name=role_name)
-                db.add(role)
-                db.commit()
-                print(f"Role {role_name} created successfully.")
-            else:
-                print(f"Role {role_name} already exists.")
+        try:
+            for role_name in role_names:
+                role = db.query(Role).filter(Role.name == role_name).first()
+                if not role:
+                    role = Role(name=role_name)
+                    db.add(role)
+                    db.commit()
+                    print(f"Role {role_name} created successfully.")
+                else:
+                    print(f"Role {role_name} already exists.")
+        except Exception as e:
+            db.rollback()
+            print(f"Error creating roles: {str(e)}")
+            raise
 
 def create_default_admin():
     with session as db:
-    # Check if the admin user already exists
-        admin = authenticate_user(ADMIN_USERNAME, ADMIN_PASSWORD, db)
-        admin_role: Role = db.query(Role).filter(Role.name == "admin").first()
-        if not admin_role:
-            print("Admin role not found.")
-            raise ValueError("Admin role not found.")
-        if admin:
-            print("Admin user already exists.")
-            return
-        if not ADMIN_USERNAME or not ADMIN_PASSWORD:
-            print("Admin username and password not provided.")
-            raise ValueError("Admin username and password not provided.")
-        # # If not, create a new admin user
-        admin_request = Account(
-            username=ADMIN_USERNAME,
-            email="admin@example.com",
-            password=hash_password(ADMIN_PASSWORD),
-            role_id=admin_role.role_id
-        )
-        db.add(admin_request)
-        db.commit()
-        
-        admin_request_2 = Profile()
-        admin_request_2.name = "Admin"
-        admin_request_2.address = ""
-        admin_request_2.phone = ""
-        db.add(admin_request_2)
-        db.commit()
-        
-        print("Admin user created successfully.")
+        try:
+            admin = authenticate_user(ADMIN_USERNAME, ADMIN_PASSWORD, db)
+            admin_role: Role = db.query(Role).filter(Role.name == "admin").first()
+            if not admin_role:
+                print("Admin role not found.")
+                raise ValueError("Admin role not found.")
+            if admin:
+                print("Admin user already exists.")
+                return
+            if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+                print("Admin username and password not provided.")
+                raise ValueError("Admin username and password not provided.")
+            new_admin = Account(
+                username=ADMIN_USERNAME,
+                email="admin@example.com",
+                password=hash_password(ADMIN_PASSWORD),
+                role=admin_role.role_id
+            )
+            db.add(new_admin)
+            db.commit()
+            db.refresh(new_admin)
+            admin_profile = Profile()
+            admin_profile.user_id = new_admin.user_id
+            admin_profile.name = "Admin"
+            admin_profile.address = "Admin Address"
+            admin_profile.phone = "1234567890"
+            admin_profile.age = 30
+            admin_profile.gender = GenderEnum.Male
+            db.add(admin_profile)
+            db.commit()
+            
+            print("Admin user created successfully.")
+        except Exception as e:
+            db.rollback()
+            print(f"Error creating admin user: {str(e)}")
+            raise
