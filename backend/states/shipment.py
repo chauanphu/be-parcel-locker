@@ -61,7 +61,7 @@ class Route:
             "route_id": self.route_id,
             "locations": [location.to_dict() for location in self.visit_locations]
         }
-        
+      
 def set_route(route: Route):
     """
     This function sets the route of the shipper to Redis

@@ -9,6 +9,8 @@ from database.session import get_db
 from fastapi import Depends
 from utils.redis import redis_client
 import json
+from models.order import Order as OrderModel
+from states.shipment import get_route
 
 router = APIRouter()
 
@@ -96,24 +98,9 @@ class PushNotiManager(ConnetionManager):
     async def send_message(self, user_id: int, message: str):
         await self.send_to(json.dumps({"type": "notification", "data": message}), user_id)
 
-class ShipperNotiManager(ConnetionManager):
-    def __init__(self):
-        super().__init__()
-
-    def notify_new_order(self, new_order: Route):
-        # Stringify the new order to JSON
-        new_order = json.dumps({
-            "type": "new_order",
-            "data": new_order.__dict__
-        })
-        
-        for connection in self.active_connections.values():
-            connection.send_text(new_order)
-
 class LiveOrderManager(ConnetionManager):
     def __init__(self):
         self.viewers: Dict[int, List[WebSocket]] = {}  # order_id -> list of viewing websockets
-        self.updater: Dict[int, WebSocket] = {}  # order_id -> shipper websocket
     
     def get_location(self, order_id: int):
         latitude = redis_client.hget(f"order:{order_id}", "latitude")
@@ -122,9 +109,24 @@ class LiveOrderManager(ConnetionManager):
             return None, None
         return latitude, longitude
 
+    def get_orders(self, shipper_id: int):
+        # Get all orders that are being tracked by the shipper from redis
+        orders = redis_client.smembers(f"shipper:{shipper_id}:orders")
+        return orders
+
     def update_location(self, order_id: int, latitude: float, longitude: float):
         redis_client.hset(f"order:{order_id}", "latitude", latitude)
         redis_client.hset(f"order:{order_id}", "longitude", longitude)
+
+    def format_location(self, order_id: int, latitude: float, longitude: float):
+        return json.dumps({
+            "type": "location_update",
+            "data": {
+                "order_id": order_id,
+                "latitude": latitude,
+                "longitude": longitude
+            }
+        })
 
     async def connect_viewer(self, websocket: WebSocket, order_id: int):
         # Remove viewer from any existing order they might be watching
@@ -138,20 +140,9 @@ class LiveOrderManager(ConnetionManager):
             self.viewers[order_id] = []
         self.viewers[order_id].append(websocket)
 
-    async def connect_updater(self, websocket: WebSocket, order_id: int):
-        await websocket.accept()
-        self.updater[order_id] = websocket
-
     async def broadcast_location(self, order_id: int, latitude: float, longitude: float):
         if order_id in self.viewers:
-            update = json.dumps({
-                "type": "location_update",
-                "data": {
-                    "order_id": order_id,
-                    "latitude": latitude,
-                    "longitude": longitude
-                }
-            })
+            update = self.format_location(order_id, latitude, longitude)
             for viewer in self.viewers[order_id]:
                 try:
                     await viewer.send_text(update)
@@ -164,16 +155,37 @@ class LiveOrderManager(ConnetionManager):
             if websocket in viewers:
                 viewers.remove(websocket)
                 break
-            
-        # Remove from updater if it's a shipper
-        for order_id, updater in self.updater.items():
-            if websocket == updater:
-                del self.updater[order_id]
-                break
+
+class ShipperNotiManager(ConnetionManager):
+    def __init__(self, _liveOrderManager: LiveOrderManager):
+        super().__init__()
+        self.liveOrderManager = _liveOrderManager
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections.values():
+            await connection.send_text(message)
+
+    async def update_location(self, shipper_id, latitude: float, longitude: float):
+        pass
+
+    async def notify_new_order(self, shipper_id, new_order: Route):
+        # Stringify the new order to JSON
+        new_order = json.dumps({
+            "type": "new_order",
+            "data": new_order
+        })
+        await self.send_to(new_order, shipper_id)
+
+    async def dequeue_order(self, shipper_id: int):
+        route = get_route(1)
+        if not route:
+            return
+        # Notify the shipper about the new order
+        await self.notify_new_order(shipper_id, route)
 
 pushNotiManager = PushNotiManager()
-shipperNotiManager = ShipperNotiManager()
 liveOrderManager = LiveOrderManager()
+shipperNotiManager = ShipperNotiManager(liveOrderManager)
 
 # Websocker for tracking the order in real-time
 @router.websocket("/tracking/{order_id}")
@@ -192,25 +204,19 @@ async def websocket_tracking(
 
         # Verify user
         user = get_current_user(token, db)
-        
-        # Get the order from the database
-        order = db.query(Order).filter(Order.order_id == order_id).first()
+        # Get order from database
+        order = db.query(OrderModel).filter(OrderModel.order_id == order_id).first()
         if not order:
             await websocket.close(code=1008, reason="Order not found")
             return
-        
         # Check if user has permission to view/update this order
-        is_shipper = user.role == "shipper" and order.shipper_id == user.user_id
-        is_customer = user.user_id in (order.sender_id, order.receiver_id)
-        
-        if not (is_shipper or is_customer):
+        is_authorised = user.user_id in [order.sender_id, order.recipient_id]
+        if not is_authorised:
             await websocket.close(code=1008, reason="Unauthorized")
             return
         
         # Connect based on role
-        if is_shipper:
-            await liveOrderManager.connect_updater(websocket, order_id)
-        else:
+        try:
             await liveOrderManager.connect_viewer(websocket, order_id)
             latitude, longitude = liveOrderManager.get_location(order_id)
             if latitude is not None and longitude is not None:
@@ -222,20 +228,11 @@ async def websocket_tracking(
                         "longitude": longitude
                     }
                 }))
-        try:
             while True:
-                data = await websocket.receive_json()
-                
-                # Only shipper can send location updates
-                if is_shipper and "latitude" in data and "longitude" in data:
-                    latitude = float(data["latitude"])
-                    longitude = float(data["longitude"])
-                    await liveOrderManager.broadcast_location(order_id, latitude, longitude)
+                await websocket.receive_text()
+
         except WebSocketDisconnect:
-            pass
-        except ValueError:
-            if is_shipper:
-                await websocket.close(code=1008, reason="Invalid location data")
+            liveOrderManager.disconnect(websocket)
             
     except HTTPException:
         if not websocket.client_state.disconnected:
@@ -262,10 +259,9 @@ async def websocket_notifications(
         # Verify user
         user = get_current_user(token, db)
         
-        # Connect with user ID
-        await pushNotiManager.connect(websocket, user_id=user.user_id)
-        
         try:
+            # Connect with user ID
+            await pushNotiManager.connect(websocket, user_id=user.user_id)
             while True:
                 await pushNotiManager.send_message(user.user_id, "You have a new notification")
                 await websocket.receive_text()
@@ -281,12 +277,49 @@ async def websocket_notifications(
             logging.error(str(e))
         
 # Websocket only for shipper, to notify new
-@router.websocket("/ws/shipper")
-async def websocket_notifications(websocket: WebSocket):
-    await pushNotiManager.connect(websocket)
+@router.websocket("/shipper")
+async def websocket_notifications(
+    websocket: WebSocket,
+    db: Session = Depends(get_db)
+    ):
     try:
-        while True:
-            # Sending notifications to the shipper
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        pushNotiManager.disconnect(websocket)
+        headers = dict(websocket.headers)
+        token = headers.get('authorization', '').replace('Bearer ', '')
+            
+        if not token:
+            await websocket.close(code=1008, reason="Missing authentication token")
+            return
+
+        # Verify user
+        user = get_current_user(token, db)
+        # Check if user has permission to view/update this order
+        is_shipper = user.role_rel.name == 'shipper'
+        
+        if not (is_shipper):
+            await websocket.close(code=1008, reason="Unauthorized")
+            return
+        
+        # Connect based on role
+        await shipperNotiManager.connect(websocket, user.user_id)
+        try:
+            # Notify new order
+            await shipperNotiManager.dequeue_order(user.user_id)
+            while True:
+                # Sending notifications to the shipper
+                data = await websocket.receive_text()
+                data = json.loads(data)
+                if data['type'] != 'location_update':
+                    continue
+                if data['latitude'] is None or data['longitude'] is None:
+                    continue
+                shipperNotiManager.update_location(user.user_id, data['latitude'], data['longitude'])
+
+        except WebSocketDisconnect:
+            shipperNotiManager.disconnect(user.user_id)
+    except HTTPException:
+        if not websocket.client_state != WebSocketState.DISCONNECTED:
+            await websocket.close(code=1008, reason="Authentication failed")
+    except Exception as e:
+        if not websocket.client_state != WebSocketState.DISCONNECTED:
+            await websocket.close(code=1011, reason="Internal server error")
+            logging.error(str(e))
