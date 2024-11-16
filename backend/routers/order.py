@@ -1,6 +1,6 @@
 from datetime import date
 import random
-from typing import Any, Dict, Optional, Tuple, Union, List
+from typing import Optional, List
 import uuid
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from pydantic import BaseModel, EmailStr
@@ -120,7 +120,7 @@ def join_order_parcel_cell(db: Session = Depends(get_db)):
     query = db.query(Order).options(joinedload(Order.parcel)).join(Parcel, Order.order_id == Parcel.parcel_id)
     return query
 
-def find_available_cell(locker_id: int, size_option: str, db: Session) -> Union[Tuple[Cell, str], Tuple[None, None]]:
+def find_available_cell(locker_id: int, size_option: str, db: Session) -> Optional[Cell]:
     """
     Finds an available cell using Redis for availability tracking
     """
@@ -129,15 +129,15 @@ def find_available_cell(locker_id: int, size_option: str, db: Session) -> Union[
     orders = db.query(Order).filter(Order.order_status != OrderStatusEnum.Completed).all()
     used_cells.update(order.sending_cell_id for order in orders)
     used_cells.update(order.receiving_cell_id for order in orders)
-
+    used_cells = list(used_cells)
     available_cell = db.query(Cell).filter(
         Cell.locker_id == locker_id,
         Cell.size == size_option,
-        Cell.cell_id.notin_(used_cells)
+        ~Cell.cell_id.in_(used_cells)
         ).first()
     if available_cell:
         return available_cell
-    return None, None
+    return None
 
 def find_locker_by_cell(cell_id: uuid.UUID, db: Session = Depends(get_db)):
     """
