@@ -188,11 +188,12 @@ async def create_locker(
         db.commit()
         db.refresh(new_locker)
         for cell in locker.cells:
-            new_cell = Cell(
-                locker_id=new_locker.locker_id,
-                size=cell.size
-            )
-            db.add(new_cell)
+            for _ in range(cell.quantity):
+                new_cell = Cell(
+                    locker_id=new_locker.locker_id,
+                    size=cell.size
+                )
+                db.add(new_cell)
         db.commit()
 
         return status.HTTP_201_CREATED
@@ -200,16 +201,20 @@ async def create_locker(
         raise HTTPException(status_code=400, detail="Locker already exists")
 
 @router.get("/{locker_id}/available-cells", response_model=List[CellIDResponse])
-async def get_available_cells(locker_id: int, db: Session = Depends(get_db)):
+async def get_available_cells(locker_id: int, size: str, db: Session = Depends(get_db)):
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     if not locker:
         raise HTTPException(status_code=404, detail="Locker not found")
-    
-    used_cells = set()
-    incompleted_orders = db.query(Order).filter(Order.order_status == OrderStatus.Completed)
-    used_cells.update([order.sending_cell_id for order in incompleted_orders])
-    used_cells.update([order.receiving_cell_id for order in incompleted_orders])
-    available_cells = db.query(Cell).filter(Cell.cell_id.notin_(used_cells)).all()
+    used_cells = set()    
+    orders = db.query(Order).filter(Order.order_status != OrderStatus.Completed).all()
+    used_cells.update(order.sending_cell_id for order in orders)
+    used_cells.update(order.receiving_cell_id for order in orders)
+    used_cells = list(used_cells)
+    available_cells = db.query(Cell).filter(
+        Cell.locker_id == locker_id,
+        Cell.size == size,
+        ~Cell.cell_id.in_(used_cells)
+        ).all()
     return [
         CellIDResponse(cell_id=cell.cell_id, size=cell.size) for cell in available_cells
     ]
