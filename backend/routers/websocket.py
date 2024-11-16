@@ -1,6 +1,8 @@
 # websocket.py
+import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from typing import Dict, List
+from fastapi.websockets import WebSocketState
 from sqlalchemy.orm import Session
 from auth.utils import get_current_user
 from database.session import get_db
@@ -14,7 +16,7 @@ class Order:
     """
     This model represents the order of the customer
     """
-    def __init__(self, order_id: int, size: str, weight: float):
+    def __init__(self, order_id: int, size: float, weight: float):
         self.order_id = order_id
         self.size = size
         self.weight = weight
@@ -28,14 +30,14 @@ class Location:
     """
     This model represents the location of the customer
     """
-    def __init__(self, location_id: int, latitude: float, longitude: float):
-        self.location_id = location_id
+    def __init__(self, locker_id: int, latitude: float, longitude: float):
+        self.locker_id = locker_id
         self.latitude = latitude
         self.longitude = longitude
         self.pickup_orders: List[Order] = []
         self.dropoff_orders: List[Order] = []
         self.__dict__ = {
-            "location_id": self.location_id,
+            "locker_id": self.locker_id,
             "latitude": self.latitude,
             "longitude": self.longitude,
             "pickup_orders": [order.__dict__ for order in self.pickup_orders],
@@ -49,7 +51,7 @@ class Route:
     def __init__(self) -> None:
         self.visited_locations: List[Location] = []
         self.__dict__ = {
-            "visited_locations": [location.__dict__ for location in self.visited_locations]
+            "locations": [location.__dict__ for location in self.visited_locations]
         }
 
 class ConnetionManager:
@@ -57,6 +59,7 @@ class ConnetionManager:
         self.active_connections: Dict[int, WebSocket] = {}
     
     async def connect(self, websocket: WebSocket, user_id: int):
+        # Accept connection
         await websocket.accept()
         # Create a new connection for the user if not exists
         if user_id not in self.active_connections:
@@ -68,7 +71,7 @@ class ConnetionManager:
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
     
-    async def send_personal_message_to(self, message: str, user_id: int):
+    async def send_to(self, message: str, user_id: int):
         await self.active_connections[user_id].send_text(message)
 
     async def broadcast(self, message: str):
@@ -78,10 +81,20 @@ class ConnetionManager:
 class PushNotiManager(ConnetionManager):
     def __init__(self):
         super().__init__()
+    async def notify_new_order(self, user_id, message: str, order_id: int):
+        # Stringify the new order to JSON
+        new_order = json.dumps({
+            "type": "notification",
+            "data": {
+                "order_id": order_id,
+                "message": message
+            }
+        })
+        
+        await self.send_to(new_order, user_id)
 
-    def send_message(self, user_id: int, message: str):
-        if user_id in self.active_connections:
-            self.active_connections[user_id].send_text(message)
+    async def send_message(self, user_id: int, message: str):
+        await self.send_to(json.dumps({"type": "notification", "data": message}), user_id)
 
 class ShipperNotiManager(ConnetionManager):
     def __init__(self):
@@ -163,7 +176,7 @@ shipperNotiManager = ShipperNotiManager()
 liveOrderManager = LiveOrderManager()
 
 # Websocker for tracking the order in real-time
-@router.websocket("/ws/tracking/{order_id}")
+@router.websocket("/tracking/{order_id}")
 async def websocket_tracking(
     websocket: WebSocket,
     order_id: int,
@@ -232,7 +245,7 @@ async def websocket_tracking(
             await websocket.close(code=1011, reason="Internal server error")
 
 # Websocket to send notifications to the customer
-@router.websocket("/ws/customer")
+@router.websocket("/customer")
 async def websocket_notifications(
     websocket: WebSocket,
     db: Session = Depends(get_db)
@@ -249,24 +262,23 @@ async def websocket_notifications(
         # Verify user
         user = get_current_user(token, db)
         
-        # Accept connection
-        await websocket.accept()
-        
         # Connect with user ID
         await pushNotiManager.connect(websocket, user_id=user.user_id)
         
         try:
             while True:
+                await pushNotiManager.send_message(user.user_id, "You have a new notification")
                 await websocket.receive_text()
         except WebSocketDisconnect:
             pushNotiManager.disconnect(user.user_id)
             
     except HTTPException:
-        if not websocket.client_state.disconnected:
+        if websocket.client_state != WebSocketState.DISCONNECTED:
             await websocket.close(code=1008, reason="Authentication failed")
     except Exception as e:
-        if not websocket.client_state.disconnected:
+        if websocket.client_state != WebSocketState.DISCONNECTED:
             await websocket.close(code=1011, reason="Internal server error")
+            logging.error(str(e))
         
 # Websocket only for shipper, to notify new
 @router.websocket("/ws/shipper")
