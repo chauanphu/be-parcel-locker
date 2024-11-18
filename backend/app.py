@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from middlewares.cors import apply_cors_middleware
+from database import setup
+from states.shipment import *
+from vrp_solver import *
 from routers import api_router
 from routers import websocket_router
-from database import setup
 
 def create_app() -> FastAPI:
     app = FastAPI()
