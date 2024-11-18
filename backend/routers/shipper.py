@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional
 from auth.utils import get_current_user, hash_password
 from starlette import status
-
 from models.role import Role
+from states.shipment import Route, Location, Order, set_route, get_route
 
 router = APIRouter(
     prefix="/shipper",
@@ -104,3 +104,22 @@ def get_paging_shippers(
         "total_pages": total_pages,
         "data": shipper_responses
     }
+
+#### SHIPPER ROUTES ####
+@router.post("/accept/{route_id}")
+def accept_route(route_id: int, db: Session = Depends(get_db)):
+    pass
+
+@router.post("/reject/{route_id}")
+def reject_route(route_id: int, db: Session = Depends(get_db)):
+    pass
+#########################
+
+#### ON PICKUP AND DELIVER ####
+@router.post("/pickup/{order_id}")
+def pickup_order(order_id: int, db: Session = Depends(get_db)):
+    pass
+
+@router.post("/deliver/{order_id}")
+def deliver_order(order_id: int, db: Session = Depends(get_db)):
+    pass
