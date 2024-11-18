@@ -10,7 +10,7 @@ from fastapi import Depends
 from utils.redis import redis_client
 import json
 from models.order import Order as OrderModel
-from states.shipment import get_route, update_location, Route
+from states.shipment import assign_orders_to_shipper, get_orders_by_shipper, get_route, update_location, Route, track_order
 
 router = APIRouter()
 
@@ -61,20 +61,10 @@ class LiveOrderManager(ConnetionManager):
         self.viewers: Dict[int, List[WebSocket]] = {}  # order_id -> list of viewing websockets
     
     def get_location(self, order_id: int):
-        latitude = redis_client.hget(f"order:{order_id}", "latitude")
-        longitude = redis_client.hget(f"order:{order_id}", "longitude")
+        latitude, longitude = track_order(order_id=order_id)
         if latitude is None or longitude is None:
             return None, None
         return latitude, longitude
-
-    def get_orders(self, shipper_id: int):
-        # Get all orders that are being tracked by the shipper from redis
-        orders = redis_client.smembers(f"shipper:{shipper_id}:orders")
-        return orders
-
-    def update_location(self, order_id: int, latitude: float, longitude: float):
-        redis_client.hset(f"order:{order_id}", "latitude", latitude)
-        redis_client.hset(f"order:{order_id}", "longitude", longitude)
 
     def format_location(self, order_id: int, latitude: float, longitude: float):
         return json.dumps({
@@ -132,14 +122,13 @@ class ShipperNotiManager(ConnetionManager):
         await self.send_to(new_order, shipper_id)
 
     async def dequeue_order(self, shipper_id: int):
-        route: Route = get_route(1)
+        route: Route = get_route(0)
         if not route:
             return
         # Notify the shipper about the new order
-        # assign_orders_to_shipper(shipper_id, route)
+        assign_orders_to_shipper(shipper_id, route)
         await self.notify_new_order(shipper_id, route)
         # Add the order to the shipper's list of orders using redis
-
 
 pushNotiManager = PushNotiManager()
 liveOrderManager = LiveOrderManager()
@@ -177,15 +166,7 @@ async def websocket_tracking(
         try:
             await liveOrderManager.connect_viewer(websocket, order_id)
             latitude, longitude = liveOrderManager.get_location(order_id)
-            if latitude is not None and longitude is not None:
-                await websocket.send_text(json.dumps({
-                    "type": "location_update",
-                    "data": {
-                        "order_id": order_id,
-                        "latitude": latitude,
-                        "longitude": longitude
-                    }
-                }))
+            await liveOrderManager.broadcast_location(order_id, latitude, longitude)
             while True:
                 await websocket.receive_text()
 
@@ -270,8 +251,11 @@ async def websocket_notifications(
                     continue
                 if data['latitude'] is None or data['longitude'] is None:
                     continue
+                # Update the location of the shipper and broadcast to all viewers
                 update_location(user.user_id, data['latitude'], data['longitude'])
-
+                order_ids = get_orders_by_shipper(user.user_id)
+                for order_id in order_ids:
+                    liveOrderManager.broadcast_location(order_id, data['latitude'], data['longitude'])
         except WebSocketDisconnect:
             shipperNotiManager.disconnect(user.user_id)
     except HTTPException:

@@ -166,7 +166,7 @@ def pickup_order(order_id: int, otp: int, db: Session = Depends(get_db), current
     order.order_status = OrderStatus.Ongoing
     db.commit()
     
-    shipment.pickup_order(order_id, shipper_id=current_user.user_id)
+    shipment.pickup_order(order_id)
     return {"message": "Order picked up successfully"}
 
 @router.post("/deliver/{order_id}")
@@ -178,5 +178,5 @@ def deliver_order(order_id: int, otp: int, db: Session = Depends(get_db), curren
     order.order_status = OrderStatus.Deliverd
     db.commit()
     
-    shipment.drop_order(order_id, shipper_id=current_user.user_id)
+    shipment.drop_order(order_id)
     return {"message": "Order delivered successfully"}

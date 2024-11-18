@@ -10,7 +10,7 @@ def get_cache_orders() -> List[VRPOrder]:
     orders = []
     for key in redis_client.scan_iter("order:*"):
         order = redis_client.hgetall(key)
-        if order["status"] != "Ongoing":
+        if order["status"] != "Waiting":
             continue
         order_id = key.split(":")[1]
         orders.append(VRPOrder(

@@ -28,6 +28,7 @@ router = APIRouter(
 class OrderStatusEnum(str, Enum):
     Packaging = 'Packaging'
     Ongoing = 'Ongoing'
+    Waiting = 'Waiting'
     Delivered = 'Delivered'
     Completed = 'Completed'
 
@@ -331,10 +332,10 @@ async def verify_qr(order_id: int, otp: int, db: Session = Depends(get_db), curr
     # Update status based on user role and current status
     status = order.get("status")
     if is_sender == "sender" and status == OrderStatusEnum.Packaging.value:
-        await update_order_status(order_id, OrderStatusEnum.Ongoing, db)
+        await update_order_status(order_id, OrderStatusEnum.Waiting, db)
         # Update order.receiver_date
         db.query(Order).filter(Order.order_id == order_id).update({"sending_date": date.today()})
-        redis_client.hset(f"order:{order_id}", "status", OrderStatusEnum.Ongoing.value)
+        redis_client.hset(f"order:{order_id}", "status", OrderStatusEnum.Waiting.value)
         target_cell_id = order.get("sending_cell_id")
         target_locker_id = order.get("sending_locker_id")
         solve_vrp()
@@ -343,9 +344,9 @@ async def verify_qr(order_id: int, otp: int, db: Session = Depends(get_db), curr
         await update_order_status(order_id, OrderStatusEnum.Completed, db)
         # Update order.receiver_date
         db.query(Order).filter(Order.order_id == order_id).update({"receiving_date": date.today()})
-        redis_client.delete(f"order:{order_id}")
         target_cell_id = order.get("receiving_cell_id")
         target_locker_id = order.get("receiving_locker_id")
+        redis_client.delete(f"order:{order_id}")
     else:
         raise HTTPException(status_code=400, detail="Invalid operation for current order status")
 

@@ -93,56 +93,64 @@ def get_route(route_id: int) -> Route:
         return result
     return None
 
-# def assign_orders_to_shipper(shipper_id: int, route: dict):
-#     """
-#     This function assigns the route to the shipper
-#     """
-#     # Get all the orders from the route
-#     order_ids: set[int] = set()
-#     # Parse the route to Route object
-#     route: Route = Route.parse_from_dict(route)
-#     for location in route.visit_locations:
-#         order_ids.update([order.order_id for order in location.pickup_orders])
-#         order_ids.update([order.order_id for order in location.dropoff_orders])
+def assign_orders_to_shipper(shipper_id: int, route: dict):
+    """
+    This function assigns the route to the shipper
+    """
+    # Get all the orders from the route
+    order_ids: set = set()
+    print(route)
+    for location in route['locations']:
+        order_ids.update([order['order_id'] for order in location.get('pickup_orders', [])])
+        order_ids.update([order['order_id'] for order in location.get('dropoff_orders', [])])
 
-#     # Set the orders to Redis
-#     for id in order_ids:
-#         redis_client.hset(f'order:{id}', 'shipper_id', shipper_id)
-#     # Add all order_ids to the the shipper using add member function of Redis
-#     redis_client.sadd(f'shipper:{shipper_id}', *order_ids)
+    # Set the orders to Redis
+    for id in order_ids:
+        redis_client.hset(f'order:{id}', 'shipper_id', shipper_id)
+        redis_client.sadd(f"tracking:{shipper_id}", id)
+
+    # Copy route:route_id to shipper_route:shipper_id
+    redis_client.set(f'shipper:{shipper_id}', json.dumps(route))
+    redis_client.delete(f'route:{route["route_id"]}')
+
+def track_order(order_id: int) -> tuple[float, float]:
+    """
+    This function tracks the order from Redis
+    """
+    shipper_id = redis_client.hget(f'order:{order_id}', 'shipper_id')
+    status = redis_client.hget(f'order:{order_id}', 'status')
+    if shipper_id and status == OrderStatus.Ongoing.value:
+        result = redis_client.hgetall(f'shipper_location:{shipper_id}')
+        return result['latitude'], result['longitude']
+    return None
+
+def get_orders_by_shipper(shipper_id: int):
+    """
+    This function gets the orders assigned to the shipper from Redis
+    """
+    order_ids = redis_client.smembers(f"tracking:{shipper_id}")
+    return redis_client.smembers(f"tracking:{shipper_id}")
 
 def update_location(shipper_id: int, latitude: float, longitude: float):
     # Get all the orders assigned to the shipper
-    orders = redis_client.smembers(f'shipper:{shipper_id}')
-    for order_id in orders:
-        order = redis_client.hgetall(f'order:{order_id}')
-        if order:
-            order['latitude'] = latitude
-            order['longitude'] = longitude
-            redis_client.hmset(f'order:{order_id}', order)
+    redis_client.hmset(f'shipper_location:{shipper_id}', {'latitude': latitude, 'longitude': longitude})
 
-def drop_order(shipper_id: int, order_id: int) -> bool:
+def finish_route(shipper_id: int):
+    redis_client.delete(f'shipper:{shipper_id}')
+    redis_client.delete(f"shipper_location:{shipper_id}")
+    redis_client.delete(f"tracking:{shipper_id}")
+
+def drop_order(order_id: int) -> bool:
     # Check if the order is in the shipper
-    if not redis_client.sismember(f'shipper:{shipper_id}', order_id):
-        return False
     order = redis_client.hgetall(f'order:{order_id}')
     if order:
         order['status'] = OrderStatus.Deliverd.value
         redis_client.hmset(f'order:{order_id}', order)
-    # Remove the order from the shipper
-    redis_client.srem(f'shipper:{shipper_id}', order_id)
-    # If all the orders are removed from the shipper, remove the shipper
-    if not redis_client.scard(f'shipper:{shipper_id}'):
-        redis_client.delete(f'shipper:{shipper_id}')
     return True
 
-def pickup_order(shipper_id: int, order_id: int) -> bool:
-    if not redis_client.sismember(f'shipper:{shipper_id}', order_id):
-        return False
+def pickup_order(order_id: int) -> bool:
     order = redis_client.hgetall(f'order:{order_id}')
     if order:
         order['status'] = OrderStatus.Ongoing.value
         redis_client.hmset(f'order:{order_id}', order)
-    # Add the order to the shipper if not already in the shipper
-    redis_client.sadd(f'shipper:{shipper_id}', order_id)
     return True
