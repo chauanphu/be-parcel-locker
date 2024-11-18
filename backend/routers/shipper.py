@@ -1,13 +1,18 @@
+import random
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 from models.account import Account
+from models.role import Role
+from models.order import Order, OrderStatus
 from database.session import get_db
 from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional
 from auth.utils import get_current_user, hash_password
 from starlette import status
-from models.role import Role
-from states.shipment import Route, Location, Order, set_route, get_route
+
+from states import shipment
+from utils.redis import redis_client
+from utils.mqtt import locker_client
 
 router = APIRouter(
     prefix="/shipper",
@@ -116,10 +121,62 @@ def reject_route(route_id: int, db: Session = Depends(get_db)):
 #########################
 
 #### ON PICKUP AND DELIVER ####
+# Handling cell unlock by POST request
+def verify_shipper_order(order_id: int, otp: int, db: Session, current_user: Account, status: OrderStatus = OrderStatus.Waiting) -> Order:
+    """Common verification function for shipper operations"""
+    if current_user.role_rel.name != "shipper":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only shippers can perform this action")
+    
+    order: Order = db.query(Order).filter(
+        Order.order_id == order_id, 
+        Order.shipper_id == current_user.user_id,
+        Order.order_status == status
+    ).first()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    # Verify OTP if provided
+    if otp:
+        stored_otp = redis_client.get(f"otp:{order_id}")
+        if not stored_otp:
+            raise HTTPException(status_code=400, detail="OTP code not found or expired")
+        if int(stored_otp) != otp:
+            raise HTTPException(status_code=400, detail="Invalid OTP code")
+    
+    return order
+
+@router.post("/generate_qr")
+def unlock_cell(order_id: int, db: Session = Depends(get_db), current_user: Account = Depends(get_current_user)):
+    order = verify_shipper_order(order_id, None, db, current_user)
+    
+    # Generate OTP code
+    otp = random.randint(100000, 999999)
+    redis_client.setex(f"otp:{order_id}", 300, otp)
+    locker_client.print_qr(order.sending_locker_id, order_id, code=otp)
+    
+    return {"message": "QR code generated successfully"}
+
 @router.post("/pickup/{order_id}")
-def pickup_order(order_id: int, db: Session = Depends(get_db)):
-    pass
+def pickup_order(order_id: int, otp: int, db: Session = Depends(get_db), current_user: Account = Depends(get_current_user)):
+    if otp is None:
+        raise HTTPException(status_code=400, detail="OTP code is required")
+    order = verify_shipper_order(order_id, otp, db, current_user)
+    
+    order.order_status = OrderStatus.Ongoing
+    db.commit()
+    
+    shipment.pickup_order(order_id, shipper_id=current_user.user_id)
+    return {"message": "Order picked up successfully"}
 
 @router.post("/deliver/{order_id}")
-def deliver_order(order_id: int, db: Session = Depends(get_db)):
-    pass
+def deliver_order(order_id: int, otp: int, db: Session = Depends(get_db), current_user: Account = Depends(get_current_user)):
+    if otp is None:
+        raise HTTPException(status_code=400, detail="OTP code is required")
+    order = verify_shipper_order(order_id, otp, db, current_user, status=OrderStatus.Ongoing)
+    
+    order.order_status = OrderStatus.Deliverd
+    db.commit()
+    
+    shipment.drop_order(order_id, shipper_id=current_user.user_id)
+    return {"message": "Order delivered successfully"}

@@ -24,12 +24,10 @@ router = APIRouter(
 )
 
 class OrderStatusEnum(str, Enum):
-    Completed = "Completed"
-    Canceled = "Canceled"
-    Ongoing = "Ongoing"
-    Delayed = "Delayed"
-    Expired = "Expired"
-    Packaging = "Packaging"
+    Packaging = 'Packaging'
+    Ongoing = 'Ongoing'
+    Delivered = 'Delivered'
+    Completed = 'Completed'
 
 class BaseParcel(BaseModel):
     width: int
@@ -178,6 +176,14 @@ def determine_parcel_size(length: int, width: int, height: int, weight: int) -> 
         return "L"
     raise HTTPException(status_code=400, detail="Parcel dimensions exceed all available sizes")
 
+async def update_order_status(order_id: int, order_status: OrderStatusEnum, db: Session):
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.order_status = order_status
+    db.commit()
+    return order
+
 #tạo order
 @router.post("/")
 def create_order(order: OrderCreate, 
@@ -262,14 +268,30 @@ def create_order(order: OrderCreate,
 
 # Handling cell unlock by POST request
 @router.post("/generate_qr")
-def unlock_cell(order_id: int, db: Session = Depends(get_db)):  
+def unlock_cell(order_id: int, db: Session = Depends(get_db), current_user: Account = Depends(get_current_user)):
     # Find the order_id
-    order = redis_client.hgetall(f"order:{order_id}")
-
+    order = db.query(Order).filter(Order.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    # Find the locker_id
-    locker_id = order[b"sending_locker_id"].decode("utf-8")
+    if order.order_status != OrderStatusEnum.Packaging or order.order_status != OrderStatusEnum.Delivered:
+        raise HTTPException(status_code=400, detail="Invalid operation for current order status")
+    # Determine whether sender or recipient is the current user
+    is_sender = None
+    if order.sender_id == current_user.user_id:
+        is_sender = "sender"
+    elif order.recipient_id == current_user.user_id:
+        is_sender = "recipient"
+    else:
+        raise HTTPException(status_code=403, detail="Unauthorized access")
+    
+    cache_order = redis_client.hgetall(f"order:{order_id}")
+    if not cache_order:
+        locker_id = cache_order.get("sending_locker_id") if is_sender == "sender" else cache_order.get("receiving_locker_id")
+    else:
+        target = order.sending_cell_id if is_sender == "sender" else order.receiving_cell_id
+        locker = db.query(Locker).join(Cell).filter(Cell.cell_id == target).first()
+        locker_id = locker.locker_id
+        
     # Generate OTP code
     otp = random.randint(100000, 999999)
     redis_client.setex(f"otp:{order_id}", 300, otp)
@@ -279,23 +301,50 @@ def unlock_cell(order_id: int, db: Session = Depends(get_db)):
     return {"message": "QR code generated successfully"}
 
 @router.post("/verify_qr")
-async def verify_order(order_id: int, otp: int, db: Session = Depends(get_db)):
-    # Find the order_id in the redis
-    order = redis_client.hgetall(f"order:{order_id}")
-    
-    if not order:
+async def verify_qr(order_id: int, otp: int, db: Session = Depends(get_db), current_user: Account = Depends(get_current_user)):
+    # Find the order
+    order_db = db.query(Order).filter(Order.order_id == order_id).first()
+    if not order_db:
         raise HTTPException(status_code=404, detail="Order not found")
-    # Get the OTP code from redis
-    stored_otp = await redis_client.get(f"otp:{order_id}")
+    # Determine whether sender or recipient is the current user
+    is_sender = None
+    if order_db.sender_id == current_user.user_id:
+        is_sender = "sender"
+    elif order_db.recipient_id == current_user.user_id:
+        is_sender = "recipient"
+    else:
+        raise HTTPException(status_code=403, detail="Unauthorized access")
+
+    # Get the cached order info
+    order = redis_client.hgetall(f"order:{order_id}")
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found in cache")
+
+    # Verify OTP
+    stored_otp = redis_client.get(f"otp:{order_id}")
     if not stored_otp:
         raise HTTPException(status_code=400, detail="OTP code not found or expired")
     if int(stored_otp) != otp:
         raise HTTPException(status_code=400, detail="Invalid OTP code")
-    # Get sending locker and cell from redis
-    sending_locker_id = order.get("sending_locker_id")
-    sending_cell_id = order.get("sending_cell_id")
-    # Send request to unlock the cell
-    locker_client.unlock(sending_locker_id, sending_cell_id)
+
+    # Update status based on user role and current status
+    status = order.get("status")
+    if is_sender == "sender" and status == OrderStatusEnum.Packaging.value:
+        await update_order_status(order_id, OrderStatusEnum.Ongoing, db)
+        redis_client.hset(f"order:{order_id}", "status", OrderStatusEnum.Ongoing.value)
+        target_cell_id = order.get("sending_cell_id")
+        target_locker_id = order.get("sending_locker_id")
+    elif is_sender == "recipient" and status == OrderStatusEnum.Ongoing.value:
+        await update_order_status(order_id, OrderStatusEnum.Completed, db)
+        redis_client.delete(f"order:{order_id}")
+        target_cell_id = order.get("receiving_cell_id")
+        target_locker_id = order.get("receiving_locker_id")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid operation for current order status")
+
+    # Unlock the appropriate cell
+    locker_client.unlock(target_locker_id, target_cell_id)
+    
     # Remove the OTP code from redis
     redis_client.delete(f"otp:{order_id}")
     return {"message": "OTP verified successfully"}
@@ -328,6 +377,11 @@ async def get_paging_order(
                 address = order.sender.address
             ),
             recipient_id = order.recipient_id,
+            recipient_information = BaseSenderInfo(
+                name = order.recipient.name,
+                phone = order.recipient.phone,
+                address = order.recipient.address
+            ),
             sending_address = sending_locker.address,
             receiving_address = receiving_locker.address,
             ordering_date=order.ordering_date,
@@ -392,33 +446,33 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     
     return response
 
-#update order status by order id
-@router.put(
-    "/{order_id}",
-    summary="Update order status",
-    )
-async def update_order_status(order_id: int, order_status: OrderStatusEnum, db: Session = Depends(get_db)):
-    # First, find the order by order_id
-    existing_order = db.query(Order).filter(Order.order_id == order_id).first()
+# #update order status by order id
+# @router.put(
+#     "/{order_id}",
+#     summary="Update order status",
+#     )
+# async def update_order_status(order_id: int, order_status: OrderStatusEnum, db: Session = Depends(get_db)):
+#     # First, find the order by order_id
+#     existing_order = db.query(Order).filter(Order.order_id == order_id).first()
     
-    if existing_order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
+#     if existing_order is None:
+#         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Check the current order status
-    if existing_order.order_status != OrderStatusEnum.Packaging:
-        return HTTPException(status_code=400, detail="Order status cannot be updated")
+#     # Check the current order status
+#     if existing_order.order_status != OrderStatusEnum.Packaging:
+#         return HTTPException(status_code=400, detail="Order status cannot be updated")
     
-    # Update the order status to "Canceled"
-    existing_order.order_status = OrderStatusEnum.Canceled
+#     # Update the order status to "Canceled"
+#     existing_order.order_status = OrderStatusEnum.Canceled
     
-    # Update other fields if necessary
-    for field, value in order_status.model_dump(exclude_unset=True, exclude_none=True).items():
-        setattr(existing_order, field, value)
+#     # Update other fields if necessary
+#     for field, value in order_status.model_dump(exclude_unset=True, exclude_none=True).items():
+#         setattr(existing_order, field, value)
     
-    # Commit the changes to the database
-    db.commit()
+#     # Commit the changes to the database
+#     db.commit()
     
-    return {"Message": f"Order_id {order_id} is canceled"}
+#     return {"Message": f"Order_id {order_id} is canceled"}
 
 #delete order bằng parcel_id
 @router.delete("/{order_id}", dependencies=[Depends(check_admin)])
