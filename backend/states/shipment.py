@@ -99,7 +99,6 @@ def assign_orders_to_shipper(shipper_id: int, route: dict):
     """
     # Get all the orders from the route
     order_ids: set = set()
-    print(route)
     for location in route['locations']:
         order_ids.update([order['order_id'] for order in location.get('pickup_orders', [])])
         order_ids.update([order['order_id'] for order in location.get('dropoff_orders', [])])
