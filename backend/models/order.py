@@ -7,12 +7,14 @@ import enum
 from models.account import Account
 
 class OrderStatus(enum.Enum):
-    Completed = 'Completed'
-    Canceled = 'Canceled'
-    Ongoing = 'Ongoing'
-    Delayed = 'Delayed'
-    Expired = 'Expired'
-    Packaging = 'Packaging'
+    Packaging = 'Packaging' # Order is being prepared and has not been sent yet
+    Waiting = 'Waiting' # The order is waiting at the sending locker
+    Ongoing = 'Ongoing' # The order is being delivered by the shipper
+    Deliverd = 'Delivered' # The order has been delivered
+    Completed = 'Completed' # The order has been completed
+    Canceled = 'Canceled' # The order has been canceled by the customer
+    Delayed = 'Delayed' # The order has been delayed by the shipper
+    Expired = 'Expired' # The order has expired
 
 order_status_enum = SqlEnum(OrderStatus, name='order_status')
 
