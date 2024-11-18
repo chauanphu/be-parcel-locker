@@ -55,6 +55,13 @@ class Route:
             "route_id": self.route_id,
             "locations": [location.to_dict() for location in self.visit_locations]
         }
+    
+    def add_location(self, location: Location):
+        self.visit_locations.append(location)
+        self.__dict__.update({
+            "locations": [location.to_dict() for location in self.visit_locations]
+        })
+
     def is_empty(self):
         return not bool(self.visit_locations)
     

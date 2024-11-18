@@ -17,6 +17,8 @@ from utils.redis import redis_client
 
 from enum import Enum
 
+from vrp_solver.solver import solve_vrp
+
 router = APIRouter(
     prefix="/order",
     tags=["order"],
@@ -181,9 +183,6 @@ async def update_order_status(order_id: int, order_status: OrderStatusEnum, db: 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order.order_status = order_status
-    db.commit()
-    return order
-
 #tạo order
 @router.post("/")
 def create_order(order: OrderCreate, 
@@ -253,6 +252,8 @@ def create_order(order: OrderCreate,
             "status": OrderStatusEnum.Packaging.value,  # Convert enum to string
             "latitude": 0.0,
             "longitude": 0.0,
+            "weight": parcel_data.weight,
+            "size": size_option
         }
         pipeline.hmset(f"order:{new_order.order_id}", order_cache_data)
         pipeline.execute()
@@ -331,11 +332,17 @@ async def verify_qr(order_id: int, otp: int, db: Session = Depends(get_db), curr
     status = order.get("status")
     if is_sender == "sender" and status == OrderStatusEnum.Packaging.value:
         await update_order_status(order_id, OrderStatusEnum.Ongoing, db)
+        # Update order.receiver_date
+        db.query(Order).filter(Order.order_id == order_id).update({"sending_date": date.today()})
         redis_client.hset(f"order:{order_id}", "status", OrderStatusEnum.Ongoing.value)
         target_cell_id = order.get("sending_cell_id")
         target_locker_id = order.get("sending_locker_id")
+        solve_vrp()
+        
     elif is_sender == "recipient" and status == OrderStatusEnum.Ongoing.value:
         await update_order_status(order_id, OrderStatusEnum.Completed, db)
+        # Update order.receiver_date
+        db.query(Order).filter(Order.order_id == order_id).update({"receiving_date": date.today()})
         redis_client.delete(f"order:{order_id}")
         target_cell_id = order.get("receiving_cell_id")
         target_locker_id = order.get("receiving_locker_id")
@@ -347,6 +354,7 @@ async def verify_qr(order_id: int, otp: int, db: Session = Depends(get_db), curr
     
     # Remove the OTP code from redis
     redis_client.delete(f"otp:{order_id}")
+    db.commit()
     return {"message": "OTP verified successfully"}
 
 #get order by paging
