@@ -10,51 +10,9 @@ from fastapi import Depends
 from utils.redis import redis_client
 import json
 from models.order import Order as OrderModel
-from states.shipment import get_route
+from states.shipment import get_route, update_location, Route
 
 router = APIRouter()
-
-class Order:
-    """
-    This model represents the order of the customer
-    """
-    def __init__(self, order_id: int, size: float, weight: float):
-        self.order_id = order_id
-        self.size = size
-        self.weight = weight
-        self.__dict__ = {
-            "order_id": self.order_id,
-            "size": self.size,
-            "weight": self.weight
-        }
-    
-class Location:
-    """
-    This model represents the location of the customer
-    """
-    def __init__(self, locker_id: int, latitude: float, longitude: float):
-        self.locker_id = locker_id
-        self.latitude = latitude
-        self.longitude = longitude
-        self.pickup_orders: List[Order] = []
-        self.dropoff_orders: List[Order] = []
-        self.__dict__ = {
-            "locker_id": self.locker_id,
-            "latitude": self.latitude,
-            "longitude": self.longitude,
-            "pickup_orders": [order.__dict__ for order in self.pickup_orders],
-            "dropoff_orders": [order.__dict__ for order in self.dropoff_orders]
-        }
-
-class Route:
-    """
-    This model represents the shipping route of shipper, which contains the visited location and the pickup/dropoff orders
-    """
-    def __init__(self) -> None:
-        self.visited_locations: List[Location] = []
-        self.__dict__ = {
-            "locations": [location.__dict__ for location in self.visited_locations]
-        }
 
 class ConnetionManager:
     def __init__(self):
@@ -165,9 +123,6 @@ class ShipperNotiManager(ConnetionManager):
         for connection in self.active_connections.values():
             await connection.send_text(message)
 
-    async def update_location(self, shipper_id, latitude: float, longitude: float):
-        pass
-
     async def notify_new_order(self, shipper_id, new_order: Route):
         # Stringify the new order to JSON
         new_order = json.dumps({
@@ -177,11 +132,14 @@ class ShipperNotiManager(ConnetionManager):
         await self.send_to(new_order, shipper_id)
 
     async def dequeue_order(self, shipper_id: int):
-        route = get_route(1)
+        route: Route = get_route(1)
         if not route:
             return
         # Notify the shipper about the new order
+        # assign_orders_to_shipper(shipper_id, route)
         await self.notify_new_order(shipper_id, route)
+        # Add the order to the shipper's list of orders using redis
+
 
 pushNotiManager = PushNotiManager()
 liveOrderManager = LiveOrderManager()
@@ -312,7 +270,7 @@ async def websocket_notifications(
                     continue
                 if data['latitude'] is None or data['longitude'] is None:
                     continue
-                shipperNotiManager.update_location(user.user_id, data['latitude'], data['longitude'])
+                update_location(user.user_id, data['latitude'], data['longitude'])
 
         except WebSocketDisconnect:
             shipperNotiManager.disconnect(user.user_id)
