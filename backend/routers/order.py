@@ -273,7 +273,7 @@ def unlock_cell(order_id: int, db: Session = Depends(get_db), current_user: Acco
     order = db.query(Order).filter(Order.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.order_status != OrderStatusEnum.Packaging or order.order_status != OrderStatusEnum.Delivered:
+    if (order.order_status.value != OrderStatusEnum.Packaging.value) and (order.order_status.value != OrderStatusEnum.Delivered.value):
         raise HTTPException(status_code=400, detail="Invalid operation for current order status")
     # Determine whether sender or recipient is the current user
     is_sender = None
