@@ -81,7 +81,6 @@ router = APIRouter(
 @router.get(
     "",
     response_model=Dict[str, Any],
-    dependencies=[Depends(check_admin)],
     summary="Get all lockers with pagination"
 )
 async def list_lockers(
