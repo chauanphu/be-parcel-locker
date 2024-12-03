@@ -6,7 +6,7 @@ from models.role import Role
 from models.order import Order, OrderStatus
 from database.session import get_db
 from sqlalchemy.orm import Session
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from auth.utils import get_current_user, hash_password
 from starlette import status
 
@@ -37,6 +37,21 @@ class CreateShipperSchema(BaseModel):
     password: str = Field(..., min_length=6)
     confirm_password: str
     role: int = 3
+
+class ShipperResponse(BaseModel):
+    shipper_id: int
+    name: str
+    gender: Optional[str]
+    age: Optional[int]
+    phone: Optional[str]
+    address: Optional[str]
+
+class PaginatedShipperResponse(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    data: List[ShipperResponse]
     
 @router.post('/create', status_code=status.HTTP_201_CREATED)
 async def create_shipper(create_shipper_request: CreateShipperSchema, db: Session = Depends(get_db)):
@@ -73,7 +88,7 @@ async def create_shipper(create_shipper_request: CreateShipperSchema, db: Sessio
             "role": new_account.role}
 
 #GET PAGING SHIPPER
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/", response_model=PaginatedShipperResponse)
 def get_paging_shippers(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -88,27 +103,27 @@ def get_paging_shippers(
     # Fetch paginated list of shippers
     shippers = view_shippers.limit(per_page).offset((page - 1) * per_page).all()
 
-    # Format the response
+    # Format the response using the Pydantic model
     shipper_responses = [
-        {
-            "shipper_id": shipper.user_id,
-            "name": shipper,
-            "gender": shipper.gender,
-            "age": shipper.age,
-            "phone": shipper.phone,
-            "address": shipper.address,
-        }
+        ShipperResponse(
+            shipper_id=shipper.user_id,
+            name=shipper.name,
+            gender=shipper.gender,
+            age=shipper.age,
+            phone=shipper.phone,
+            address=shipper.address,
+        )
         for shipper in shippers
     ]
 
     total_pages = (total_shippers + per_page - 1) // per_page
-    return {
-        "total": total_shippers,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "data": shipper_responses
-    }
+    return PaginatedShipperResponse(
+        total=total_shippers,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        data=shipper_responses
+    )
 
 #### SHIPPER ROUTES ####
 @router.post("/accept/{route_id}")
