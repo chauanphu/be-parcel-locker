@@ -68,13 +68,18 @@ class OrderCreate(BaseModel):
     sending_locker_id: int
     receiving_locker_id: int
 
+class AddressResponse(BaseModel):
+    addressName: str
+    longitude: float
+    latitude: float
+
 class OrderResponse(BaseOrderInfo):
     order_id: int
     sender_id: int
     sender_information: BaseSenderInfo
     recipient_id: int
-    sending_address: str
-    receiving_address: str
+    sending_address: AddressResponse
+    receiving_address: AddressResponse
     ordering_date: date
     sending_date: Optional[date]
     receiving_date: Optional[date]
@@ -391,8 +396,16 @@ async def get_paging_order(
                 phone = order.recipient.phone,
                 address = order.recipient.address
             ),
-            sending_address = sending_locker.address,
-            receiving_address = receiving_locker.address,
+            sending_address = AddressResponse(
+                addressName = sending_locker.address,
+                longitude = sending_locker.longitude,
+                latitude = sending_locker.latitude
+            ),
+            receiving_address = AddressResponse(
+                addressName = receiving_locker.address,
+                longitude = receiving_locker.longitude,
+                latitude = receiving_locker.latitude
+            ),
             ordering_date=order.ordering_date,
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
