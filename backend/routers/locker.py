@@ -58,7 +58,7 @@ class CellIDResponse(BaseModel):
 class CellResponse(CellBase):
     """Model for cell response"""
     cell_id: UUID
-    date_created: datetime
+    size: SizeEnum
 
     class Config:
         from_attributes = True
@@ -156,10 +156,10 @@ async def get_locker_cells(
     
     cells = db.query(Cell).filter(Cell.locker_id == locker_id).all()
     cell_responses = [
-        {
-            "cell_id": cell.cell_id,
-            "size": cell.size,
-        }
+        CellResponse(
+            cell_id=cell.cell_id,
+            size=cell.size,
+        )
         for cell in cells
     ]
     
