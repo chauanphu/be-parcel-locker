@@ -7,7 +7,7 @@ from routers import api_router
 from routers import websocket_router
 
 def create_app() -> FastAPI:
-    app = FastAPI()
+    app = FastAPI(docs_url="/api", redoc_url=None)
     setup.create_roles()
     setup.create_default_admin()
     app = apply_cors_middleware(app)
