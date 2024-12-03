@@ -557,8 +557,16 @@ async def get_history_order(
                 phone=order.recipient.phone,
                 address=order.recipient.address
             ),
-            sending_address=sending_locker.address,
-            receiving_address=receiving_locker.address,
+            sending_address=AddressResponse(
+                addressName=sending_locker.address,
+                longitude=sending_locker.longitude,
+                latitude=sending_locker.latitude
+            ),
+            receiving_address=AddressResponse(
+                addressName=receiving_locker.address,
+                longitude=receiving_locker.longitude,
+                latitude=receiving_locker.latitude
+            ),
             ordering_date=order.ordering_date,
             sending_date=order.sending_date,
             receiving_date=order.receiving_date,
