@@ -222,7 +222,7 @@ async def get_available_cells(locker_id: int, size: str, db: Session = Depends(g
 async def create_cells(locker_id: int, cell_info: CellCreate, db: Session = Depends(get_db)):
     locker = db.query(Locker).filter(Locker.locker_id == locker_id).first()
     
-    if locker is None or locker.locker_status == LockerStatusEnum.Inactive:
+    if locker is None:
         raise HTTPException(status_code=400, detail="This locker is inactive")
     
     cells = []
