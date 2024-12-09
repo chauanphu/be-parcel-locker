@@ -4,17 +4,19 @@ from decouple import config
 import json
 
 class MQTTClient(mqtt.Client):
-    host: str
-    port: int
+    HOST: str
+    PORT: int
 
     def __init__(self, host=None, port=None, *args, **kwargs):
-        super().__init__(mqtt.CallbackAPIVersion.VERSION2, transport="websockets")
-        self.tls_set()
+        super().__init__(mqtt.CallbackAPIVersion.VERSION2)
+        port = int(port) if port is not None else None
         # GET MQTT_HOST_NAME FROM ENVIRONMENT VARIABLE
-        if host is None or port is None:
-            raise ValueError("Host and port must be set")
-        self.host = host
-        self.port = 443
+        assert host is not None, "Host must be set"
+        assert port is not None, "Port must be set"
+        assert isinstance(port, int), f"Port must be an integer, port is {port}"
+        self.HOST = host
+        self.PORT = port
+        print(f"MQTTClient initialized with host: {self.HOST}, port: {self.PORT}")
 
     def on_connect(self, client, userdata, flags, rc, properties):
         print("Connected with result code "+str(rc))
@@ -23,10 +25,8 @@ class MQTTClient(mqtt.Client):
     #     print("Published message", mid)
 
     def connect(self):
-        if self.host is None or self.port is None:
-            raise ValueError("Host and port must be set")
-        print(f"Connecting to {self.host}:{self.port}")
-        super().connect(self.host, self.port, 60)
+        print(f"Connecting to {self.HOST}:{self.PORT}")
+        super().connect(self.HOST, self.PORT, 60)
 
 class Request(Enum):
     PRINT_QR = "print_qr"
