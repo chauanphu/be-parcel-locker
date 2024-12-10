@@ -2,6 +2,8 @@ from typing import List
 from models.order import OrderStatus
 from utils.redis import redis_client
 import json
+from database import SessionLocal
+from models.order import Order as OrderModel
 
 class Order:
     """
@@ -107,6 +109,15 @@ def assign_orders_to_shipper(shipper_id: int, route: dict):
     for id in order_ids:
         redis_client.hset(f'order:{id}', 'shipper_id', shipper_id)
         redis_client.sadd(f"tracking:{shipper_id}", id)
+        
+    # Update the shipper id into each order in the postgres database
+    with SessionLocal() as db:
+        for id in order_ids:
+            order: OrderModel = db.query(OrderModel).filter(OrderModel.order_id == id).first()
+            if order:
+                order.shipper_id = shipper_id
+                db.add(order)
+        db.commit()
 
     # Copy route:route_id to shipper_route:shipper_id
     redis_client.set(f'shipper:{shipper_id}', json.dumps(route))
