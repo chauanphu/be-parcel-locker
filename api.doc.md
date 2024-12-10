@@ -7,7 +7,8 @@
 {
     "type": "location_update",
     "data": {
-        "order_id": "integer",
+        "shipper_id": "integer",
+        "shipper_name": "string",
         "latitude": "float",
         "longitude": "float"
     }
