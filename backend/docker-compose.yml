@@ -44,4 +44,4 @@ services:
       - "6379:6379"
     restart: always
     volumes:
-      - ./data/redis:/data
+      - ./data_redis:/data
