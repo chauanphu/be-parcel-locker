@@ -19,8 +19,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 10
 
 router = APIRouter(
     prefix="/account",
-    tags=["account"],
-    dependencies=[Depends(get_current_user)]
+    tags=["account"]
 )
 
 class AddressModel(BaseModel):
@@ -86,7 +85,7 @@ class PaginatedResponseModel(BaseModel):
 @router.get(
     "/",
     response_model=PaginatedResponseModel,
-    dependencies=[Depends(check_admin)]
+    dependencies=[Depends(check_admin), Depends(get_current_user)]
 )
 async def get_accounts_list(
     db: Session = Depends(get_db),
@@ -134,6 +133,7 @@ async def get_accounts_list(
 
 @router.get(
     "/me",
+    dependencies=[Depends(get_current_user)]
 )
 async def get_current_user_account(
     current_user: Account = Depends(get_current_user)
@@ -208,7 +208,7 @@ async def create_user_account(
 @router.delete(
     "/{user_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(check_admin)]
+    dependencies=[Depends(check_admin), Depends(get_current_user)]
 )
 async def delete_user_account(
     user_id: int,
