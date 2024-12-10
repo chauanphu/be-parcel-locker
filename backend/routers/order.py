@@ -301,7 +301,7 @@ def unlock_cell(order_id: int, db: Session = Depends(get_db), current_user: Acco
         
     # Generate OTP code
     otp = random.randint(100000, 999999)
-    redis_client.setex(f"otp:{order_id}", 300, otp)
+    redis_client.setex(f"otp:{order_id}", 60, otp)
     # TODO sending QR code to unlock the cell
     locker_client.print_qr(locker_id, order_id, code=otp)
     db.commit()
@@ -503,6 +503,9 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     #nếu order không được tìm thấy thì là not found
     if not order_delete:
         raise HTTPException(status_code=404, detail="Order not found")
+        # Delete order from Redis cache first
+    redis_client.delete(f"order:{order_id}")
+    redis_client.delete(f"otp:{order_id}")  # Also clean up any lingering OTP
     parcel_to_delete = db.query(Parcel).filter(Parcel.parcel_id == order_delete.order_id).first()
     if parcel_to_delete:
         db.delete(parcel_to_delete)
