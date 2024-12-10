@@ -10,7 +10,7 @@ class OrderStatus(enum.Enum):
     Packaging = 'Packaging' # Order is being prepared and has not been sent yet
     Waiting = 'Waiting' # The order is waiting at the sending locker
     Ongoing = 'Ongoing' # The order is being delivered by the shipper
-    Deliverd = 'Delivered' # The order has been delivered
+    Delivered = 'Delivered' # The order has been delivered
     Completed = 'Completed' # The order has been completed
     Canceled = 'Canceled' # The order has been canceled by the customer
     Delayed = 'Delayed' # The order has been delayed by the shipper

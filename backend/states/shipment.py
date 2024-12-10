@@ -143,7 +143,7 @@ def drop_order(order_id: int) -> bool:
     # Check if the order is in the shipper
     order = redis_client.hgetall(f'order:{order_id}')
     if order:
-        order['status'] = OrderStatus.Deliverd.value
+        order['status'] = OrderStatus.Delivered.value
         redis_client.hmset(f'order:{order_id}', order)
     return True
 
