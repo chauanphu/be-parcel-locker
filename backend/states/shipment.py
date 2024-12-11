@@ -4,6 +4,7 @@ from utils.redis import redis_client
 import json
 from database import SessionLocal
 from models.order import Order as OrderModel
+import logging
 
 class Order:
     """
@@ -93,6 +94,33 @@ def get_route(route_id: int) -> Route:
     if result:
         result = json.loads(result)
         return result
+    return None
+
+def deque_route() -> Route:
+    """
+    This function dequeues the route from Redis
+    """
+    try:
+        keys = redis_client.keys('route:*')
+        if keys:
+            keys.sort(key=lambda x: int(x.split(':')[1]))  # Sort keys based on the route number
+            route_id = keys.pop(0).split(':')[1]  # Get the first route id
+            route = redis_client.get(f'route:{route_id}')
+            logging.debug(f"Route from Redis: {route}")
+            
+            if not route:
+                logging.error("Route is None or empty")
+                return None
+                
+            try:
+                result = json.loads(route)
+                return result
+            except json.JSONDecodeError as e:
+                logging.error(f"JSON decode error: {e}, Route: {route}")
+                return None
+    except Exception as e:
+        logging.error(f"Error in deque_route: {str(e)}")
+        return None
     return None
 
 def assign_orders_to_shipper(shipper_id: int, route: dict):

@@ -7,10 +7,9 @@ from sqlalchemy.orm import Session
 from auth.utils import get_current_user
 from database.session import get_db
 from fastapi import Depends
-from utils.redis import redis_client
 import json
 from models.order import Order as OrderModel
-from states.shipment import assign_orders_to_shipper, get_orders_by_shipper, get_route, update_location, Route, track_order
+from states.shipment import assign_orders_to_shipper, get_orders_by_shipper, deque_route, update_location, Route, track_order
 
 router = APIRouter()
 
@@ -122,7 +121,7 @@ class ShipperNotiManager(ConnetionManager):
         await self.send_to(new_order, shipper_id)
 
     async def dequeue_order(self, shipper_id: int):
-        route: Route = get_route(0)
+        route: Route = deque_route()
         if not route:
             return
         # Notify the shipper about the new order
