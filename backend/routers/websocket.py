@@ -233,7 +233,7 @@ async def websocket_notifications(
         # Check if user has permission to view/update this order
         is_shipper = user.role_rel.name == 'shipper'
         
-        if not (is_shipper):
+        if not is_shipper:
             await websocket.close(code=1008, reason="Unauthorized")
             return
         
@@ -254,13 +254,14 @@ async def websocket_notifications(
                 update_location(user.user_id, data['latitude'], data['longitude'])
                 order_ids = get_orders_by_shipper(user.user_id)
                 for order_id in order_ids:
-                    liveOrderManager.broadcast_location(order_id, data['latitude'], data['longitude'])
+                    await liveOrderManager.broadcast_location(order_id, data['latitude'], data['longitude'])
         except WebSocketDisconnect:
             shipperNotiManager.disconnect(user.user_id)
-    except HTTPException:
-        if not websocket.client_state != WebSocketState.DISCONNECTED:
+    except HTTPException as e:
+        if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close(code=1008, reason="Authentication failed")
+        logging.error(f"HTTP Exception: {str(e)}")
     except Exception as e:
-        if not websocket.client_state != WebSocketState.DISCONNECTED:
+        if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close(code=1011, reason="Internal server error")
-            logging.error(str(e))
+        logging.error(f"Unexpected error: {str(e)}")
