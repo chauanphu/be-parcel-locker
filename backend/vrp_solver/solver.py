@@ -18,7 +18,7 @@ def _merge_orders(orders: List[VRPOrder]) -> List[VRPOrder]:
             order_group[key] = {}
             order_group[key]['orders'] = []
             order_group[key]['sending_locker'] = {
-                "id": sending_location,
+                "id": sending_locker_id,
                 "latitude": redis_client.hget(f"order:{order.order_id}", "sending_latitude"),
                 "longitude": redis_client.hget(f"order:{order.order_id}", "sending_longitude")
             }
