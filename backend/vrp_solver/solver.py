@@ -32,15 +32,15 @@ def _merge_orders(orders: List[VRPOrder]) -> List[VRPOrder]:
     for idx, (key, order_list) in enumerate(order_group.items()):
         route = Route(idx)
         sending_location = Location(
-            locker_id=order_list['sending_locker']['id'],
-            latitude=order_list['sending_locker']['latitude'],
-            longitude=order_list['sending_locker']['longitude'],
+            locker_id=int(order_list['sending_locker']['id']),
+            latitude=float(order_list['sending_locker']['latitude']),
+            longitude=float(order_list['sending_locker']['longitude']),
             pickup_orders=order_list['orders']
         )
         receiving_location = Location(
-            locker_id=order_list['receiving_locker']['id'],
-            latitude=order_list['receiving_locker']['latitude'],
-            longitude=order_list['receiving_locker']['longitude'],
+            locker_id=int(order_list['receiving_locker']['id']),
+            latitude=float(order_list['receiving_locker']['latitude']),
+            longitude=float(order_list['receiving_locker']['longitude']),
             dropoff_orders=order_list['orders']
         )
         route.add_location(sending_location)
