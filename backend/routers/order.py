@@ -249,15 +249,20 @@ def create_order(order: OrderCreate,
         db.add(new_parcel)
         db.commit()
 
+        sending_locker = db.query(Locker).filter(Locker.locker_id == sending_locker_id).first()
+        receiving_locker = db.query(Locker).filter(Locker.locker_id == receiving_locker_id).first()
+        if not sending_locker or not receiving_locker:
+            raise HTTPException(status_code=404, detail="Locker not found")
+        
         # Cache order data in Redis with string conversion for all values
         order_cache_data = {
             "sending_locker_id": sending_locker_id,
+            "sending_latitude": sending_locker.latitude,
+            "sending_longitude": sending_locker.longitude,
             "receiving_locker_id": receiving_locker_id,
-            "sending_cell_id": str(sending_cell.cell_id),
-            "receiving_cell_id": str(receiving_cell.cell_id),
+            "receiving_latitude": receiving_locker.latitude,
+            "receiving_longitude": receiving_locker.longitude,
             "status": OrderStatusEnum.Packaging.value,  # Convert enum to string
-            "latitude": 0.0,
-            "longitude": 0.0,
             "weight": parcel_data.weight,
             "size": size_option
         }

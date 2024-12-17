@@ -1,6 +1,6 @@
 
 from typing import List
-from states.shipment import Route, Location, Order as VRPOrder, set_route
+from states.shipment import Order as VRPOrder
 from utils.redis import redis_client
 
 # Get all order with status Ongoing and create a route for them.
@@ -15,7 +15,7 @@ def get_cache_orders() -> List[VRPOrder]:
         order_id = key.split(":")[1]
         orders.append(VRPOrder(
             order_id,
-            order.get("weight"),
-            order.get("size")
+            weight=order.get("weight"),
+            size=order.get("size")
         ))
     return orders
