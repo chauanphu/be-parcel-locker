@@ -259,9 +259,11 @@ def create_order(order: OrderCreate,
             "sending_locker_id": sending_locker_id,
             "sending_latitude": sending_locker.latitude,
             "sending_longitude": sending_locker.longitude,
+            "sending_cell_id": sending_cell.cell_id,
             "receiving_locker_id": receiving_locker_id,
             "receiving_latitude": receiving_locker.latitude,
             "receiving_longitude": receiving_locker.longitude,
+            "receiving_cell_id": receiving_cell.cell_id,
             "status": OrderStatusEnum.Packaging.value,  # Convert enum to string
             "weight": parcel_data.weight,
             "size": size_option
