@@ -177,7 +177,12 @@ def pickup_order(order_id: int, otp: int, db: Session = Depends(get_db), current
     redis_client.hset(f"order:{order_id}", "status", "Ongoing")
     db.commit()
     
+    target_locker_id = redis_client.hget(f"order:{order_id}", "sending_locker_id")
+    target_cell_id = redis_client.hget(f"order:{order_id}", "sending_cell_id")
+    locker_client.unlock(target_locker_id, target_cell_id)
     shipment.pickup_order(order_id)
+        # Unlock the appropriate cell
+
     return {"message": "Order picked up successfully"}
 
 @router.post("/deliver/{order_id}")
@@ -195,6 +200,10 @@ def deliver_order(order_id: int, otp: int, db: Session = Depends(get_db), curren
     order.order_status = OrderStatus.Delivered
     redis_client.hset(f"order:{order_id}", "status", "Delivered")
     db.commit()
-    
+    target_locker_id = redis_client.hget(f"order:{order_id}", "receiving_locker_id")
+    target_cell_id = redis_client.hget(f"order:{order_id}", "receiving_cell_id")
+    locker_client.unlock(target_locker_id, target_cell_id)
     shipment.drop_order(order_id)
+        # Unlock the appropriate cell
+
     return {"message": "Order delivered successfully"}
